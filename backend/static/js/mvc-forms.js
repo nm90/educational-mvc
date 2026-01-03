@@ -106,6 +106,11 @@ class MvcFormHandler {
      * @param {object} response - Success response from server
      */
     static handleSuccess(form, response) {
+        // Save __DEBUG__ data to sessionStorage if present
+        if (response.__DEBUG__) {
+            this.saveDebugDataFromResponse(response.__DEBUG__);
+        }
+
         // Show success message
         this.showMessage('success', 'Success!');
 
@@ -143,6 +148,80 @@ class MvcFormHandler {
                     field.removeEventListener('input', removeHighlight);
                 });
             }
+        }
+    }
+
+    /**
+     * Save __DEBUG__ data from JSON response to sessionStorage.
+     *
+     * Called after receiving a JSON response from the server.
+     * Saves the request data so it appears in the developer panel's
+     * request history, even though this was an async request.
+     *
+     * @param {object} debugData - The __DEBUG__ object from response
+     */
+    static saveDebugDataFromResponse(debugData) {
+        if (!debugData || !debugData.request_info) {
+            return;
+        }
+
+        try {
+            const requestInfo = debugData.request_info;
+            const requestId = debugData.request_id;
+
+            if (!requestId) {
+                console.warn('[MvcFormHandler] No request_id in debug data');
+                return;
+            }
+
+            // Load existing history
+            let history = [];
+            try {
+                const stored = sessionStorage.getItem('devPanel-requestHistory');
+                if (stored) {
+                    history = JSON.parse(stored);
+                }
+            } catch (e) {
+                console.warn('[MvcFormHandler] Error loading history:', e);
+            }
+
+            // Check if already saved
+            const alreadySaved = history.some(r => r.request_id === requestId);
+            if (alreadySaved) {
+                console.log('[MvcFormHandler] Request already in history:', requestId);
+                return;
+            }
+
+            // Create history entry
+            const entry = {
+                request_id: requestId,
+                method: requestInfo.method || 'POST',
+                url: requestInfo.url || '/',
+                timestamp: requestInfo.timestamp || Date.now() / 1000,
+                debugData: JSON.parse(JSON.stringify(debugData)),
+                summary: {
+                    methodCallCount: (debugData.method_calls || []).length,
+                    queryCount: (debugData.db_queries || []).length,
+                    status: requestInfo.status || 200,
+                    duration_ms: (debugData.timing && debugData.timing.request_end && debugData.timing.request_start)
+                        ? (debugData.timing.request_end - debugData.timing.request_start) * 1000
+                        : 0
+                }
+            };
+
+            // Add to beginning of history (most recent first)
+            history.unshift(entry);
+
+            // Trim to max 20
+            if (history.length > 20) {
+                history = history.slice(0, 20);
+            }
+
+            // Save to storage
+            sessionStorage.setItem('devPanel-requestHistory', JSON.stringify(history));
+            console.log('[MvcFormHandler] Saved POST request to history:', requestId);
+        } catch (err) {
+            console.warn('[MvcFormHandler] Error saving debug data:', err);
         }
     }
 

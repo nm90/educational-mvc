@@ -149,7 +149,9 @@ def success_response(
             'request_id': g.request_id,
             'method_calls': g.tracking['method_calls'],
             'db_queries': g.tracking['db_queries'],
-            'timing': g.tracking['timing']
+            'timing': g.tracking['timing'],
+            'view_data': g.tracking.get('view_data', {}),
+            'request_info': g.tracking.get('request_info', {})
         }
 
     # Return JSON response with appropriate status code
@@ -240,7 +242,9 @@ def error_response(
             'request_id': g.request_id,
             'method_calls': g.tracking['method_calls'],
             'db_queries': g.tracking['db_queries'],
-            'timing': g.tracking['timing']
+            'timing': g.tracking['timing'],
+            'view_data': g.tracking.get('view_data', {}),
+            'request_info': g.tracking.get('request_info', {})
         }
 
     # Return JSON response with appropriate error status code
