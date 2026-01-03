@@ -297,13 +297,18 @@ class DevPanel {
         if (content) {
             content.innerHTML = this.renderTabContent(this.currentTab);
 
-            // Attach listeners for State Inspector tab
-            if (this.currentTab === 'state') {
-                // Use requestAnimationFrame to ensure DOM is ready
-                requestAnimationFrame(() => {
+            // Use requestAnimationFrame to ensure DOM is ready
+            requestAnimationFrame(() => {
+                // Attach listeners for State Inspector tab
+                if (this.currentTab === 'state') {
                     this.attachStateInspectorListeners();
-                });
-            }
+                }
+
+                // Attach listeners for Method Calls tab
+                if (this.currentTab === 'methods') {
+                    this.attachMethodCallListeners();
+                }
+            });
         }
     }
 
@@ -311,10 +316,9 @@ class DevPanel {
      * renderTabContent(tabName) - Generate HTML for tab content
      *
      * Dispatches to appropriate render method based on tab type.
-     * Currently implements State Inspector. Others show placeholders.
+     * Currently implements State Inspector and Method Calls.
      *
      * Future features:
-     * - Methods: Show method call tree with args/return values
      * - Flow: Animated flow diagram (View → Controller → Model → DB)
      * - Network: List all HTTP requests with details
      * - Database: Show SQL queries with execution time
@@ -324,15 +328,17 @@ class DevPanel {
             return this.renderStateInspector();
         }
 
+        if (tabName === 'methods') {
+            return this.renderMethodCalls();
+        }
+
         const tabLabels = {
-            'methods': 'Method Calls',
             'flow': 'Flow Diagram',
             'network': 'Network Inspector',
             'database': 'Database Inspector'
         };
 
         const tabDescriptions = {
-            'methods': 'See every Python method call with arguments and return values',
             'flow': 'Watch the request flow through MVC layers in real-time',
             'network': 'Inspect all HTTP requests and responses',
             'database': 'Review all SQL queries and execution timing'
@@ -672,6 +678,386 @@ class DevPanel {
                         toggleBtn.setAttribute('aria-expanded', 'true');
                     }
                 }
+            } else {
+                node.style.display = 'none';
+            }
+        });
+    }
+
+    /**
+     * renderMethodCalls() - Render method call timeline with filtering and details
+     *
+     * MVC Flow:
+     * - Reads method_calls from backend (window.__DEBUG__.method_calls)
+     * - Shows all Python method calls during request execution
+     * - Displays in chronological order with execution time
+     * - Students can see the flow of method calls through Model/Controller layers
+     *
+     * Features:
+     * - Expandable method nodes showing arguments and return values
+     * - Color-coding by layer (Model=blue, Controller=green, Utility=gray)
+     * - Search/filter by method name
+     * - Filter by layer (Models only, Controllers only)
+     * - Performance filter (show methods > 10ms)
+     * - Total execution time at top
+     * - JSON syntax highlighting in arguments/return values
+     *
+     * Lesson Reference:
+     * - Lesson 2: Understanding MVC flow through method calls
+     * - Lesson 5: How controllers call models and utilities
+     */
+    renderMethodCalls() {
+        const calls = this.debugData.method_calls || [];
+
+        // Check if data is empty
+        if (!calls || calls.length === 0) {
+            return `
+                <div class="method-calls-empty">
+                    <p>No method calls tracked</p>
+                    <p style="font-size: 10px; margin-top: 10px; color: #858585;">
+                        Method call tracking not enabled or no calls made
+                    </p>
+                </div>
+            `;
+        }
+
+        // Calculate total execution time
+        const totalTime = calls.reduce((sum, call) => sum + (call.duration || 0), 0);
+
+        // Create controls for filtering
+        let html = `
+            <div class="method-calls-header">
+                <div class="method-calls-summary">
+                    <strong>${calls.length} calls, ${totalTime.toFixed(1)}ms total</strong>
+                </div>
+                <div class="method-calls-controls">
+                    <input
+                        type="text"
+                        class="method-calls-search"
+                        placeholder="Search methods..."
+                        id="method-calls-search"
+                        aria-label="Search method calls"
+                    />
+                    <div class="method-calls-filters">
+                        <label style="display: inline-flex; align-items: center; margin-right: 15px;">
+                            <input
+                                type="checkbox"
+                                id="filter-models-only"
+                                class="method-calls-filter"
+                                data-filter="models"
+                                aria-label="Show only Model methods"
+                            />
+                            <span style="margin-left: 5px; font-size: 12px;">Models Only</span>
+                        </label>
+                        <label style="display: inline-flex; align-items: center; margin-right: 15px;">
+                            <input
+                                type="checkbox"
+                                id="filter-controllers-only"
+                                class="method-calls-filter"
+                                data-filter="controllers"
+                                aria-label="Show only Controller methods"
+                            />
+                            <span style="margin-left: 5px; font-size: 12px;">Controllers Only</span>
+                        </label>
+                        <label style="display: inline-flex; align-items: center;">
+                            <input
+                                type="checkbox"
+                                id="filter-slow"
+                                class="method-calls-filter"
+                                data-filter="slow"
+                                aria-label="Show only methods > 10ms"
+                            />
+                            <span style="margin-left: 5px; font-size: 12px;">Slow (>10ms)</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="method-calls-list" id="method-calls-list">
+        `;
+
+        // Render each method call
+        calls.forEach((call, index) => {
+            html += this.createMethodCallNode(call, index);
+        });
+
+        html += '</div>';
+        return html;
+    }
+
+    /**
+     * createMethodCallNode(call, index) - Create expandable node for a single method call
+     *
+     * Shows:
+     * - Method name (e.g., "Task.get_all")
+     * - Execution duration in milliseconds
+     * - Click to expand → arguments, kwargs, return value
+     * - Color-coded by layer
+     *
+     * @param {Object} call - Method call object {method, args, kwargs, return_value, duration}
+     * @param {number} index - Index of this call in the list
+     * @returns {string} HTML for this method call node
+     */
+    createMethodCallNode(call, index) {
+        const { method, args = [], kwargs = {}, return_value, duration = 0 } = call;
+        const layer = this.getMethodLayer(method);
+        const layerColor = {
+            'model': 'layer-model',
+            'controller': 'layer-controller',
+            'utility': 'layer-utility'
+        }[layer] || 'layer-utility';
+
+        const nodeId = `method-call-${index}`;
+
+        let html = `
+            <div class="method-call-node ${layerColor}" data-layer="${layer}" data-duration="${duration}" data-method="${method}">
+                <button
+                    class="method-call-toggle collapsed"
+                    data-node-id="${nodeId}"
+                    tabindex="0"
+                    aria-expanded="false"
+                    aria-controls="${nodeId}-details"
+                >
+                    ▶
+                </button>
+                <div class="method-call-header">
+                    <span class="method-call-name">${this.escapeHtml(method)}</span>
+                    <span class="method-call-duration">${duration.toFixed(1)}ms</span>
+                </div>
+                <div
+                    id="${nodeId}-details"
+                    class="method-call-details hidden"
+                    role="region"
+                    aria-labelledby="${nodeId}"
+                >
+                    <div class="method-call-section">
+                        <div class="method-call-section-title">Arguments</div>
+                        ${this.formatMethodArguments(args, kwargs)}
+                    </div>
+                    <div class="method-call-section">
+                        <div class="method-call-section-title">Return Value</div>
+                        ${this.formatReturnValue(return_value)}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return html;
+    }
+
+    /**
+     * getMethodLayer(methodName) - Determine which MVC layer a method belongs to
+     *
+     * Identifies whether a method is from Model, Controller, or Utility layer
+     * based on naming conventions:
+     * - Model methods: ClassName.method_name (e.g., "User.get_all", "Task.create")
+     * - Controller methods: method_name or "route_handler" (e.g., "index", "create", "handle_request")
+     * - Utility methods: module.function (e.g., "decorators.track_request", "logging.log_call")
+     *
+     * @param {string} methodName - Full method name to classify
+     * @returns {string} 'model', 'controller', or 'utility'
+     */
+    getMethodLayer(methodName) {
+        if (!methodName) return 'utility';
+
+        const lowerName = methodName.toLowerCase();
+
+        // Model: Uppercase first letter indicates class (e.g., "User.get_all", "Task.create")
+        if (/^[A-Z][a-zA-Z0-9]*\.[a-z_]+$/.test(methodName)) {
+            return 'model';
+        }
+
+        // Controller: route handlers, commonly lowercase method names (e.g., "index", "create", "show")
+        if (lowerName.includes('route') || lowerName.includes('handler') ||
+            lowerName.includes('index') || lowerName.includes('create') ||
+            lowerName.includes('update') || lowerName.includes('delete') ||
+            lowerName.includes('show') || lowerName.includes('edit')) {
+            return 'controller';
+        }
+
+        // Utility: everything else (helpers, decorators, logging, etc.)
+        return 'utility';
+    }
+
+    /**
+     * formatMethodArguments(args, kwargs) - Format method arguments and kwargs
+     *
+     * @param {Array} args - Positional arguments
+     * @param {Object} kwargs - Keyword arguments
+     * @returns {string} HTML showing formatted arguments
+     */
+    formatMethodArguments(args, kwargs) {
+        let html = '<div class="method-args">';
+
+        if (!args || args.length === 0) {
+            if (!kwargs || Object.keys(kwargs).length === 0) {
+                html += '<span style="color: #858585;">(none)</span>';
+                html += '</div>';
+                return html;
+            }
+        }
+
+        // Format positional arguments
+        if (args && args.length > 0) {
+            html += '<div style="margin-bottom: 8px;">';
+            html += '<span style="color: #858585; font-size: 11px;">Positional:</span>';
+            html += '<pre style="margin: 4px 0; background: #1e1e1e; padding: 8px; border-radius: 4px; overflow-x: auto;">';
+            args.forEach((arg, i) => {
+                html += `<span class="tree-node-number">[${i}]</span> ${this.escapeHtml(JSON.stringify(arg))}\n`;
+            });
+            html += '</pre></div>';
+        }
+
+        // Format keyword arguments
+        if (kwargs && Object.keys(kwargs).length > 0) {
+            html += '<div>';
+            html += '<span style="color: #858585; font-size: 11px;">Keyword:</span>';
+            html += '<pre style="margin: 4px 0; background: #1e1e1e; padding: 8px; border-radius: 4px; overflow-x: auto;">';
+            Object.entries(kwargs).forEach(([key, value]) => {
+                html += `<span class="tree-node-key">${this.escapeHtml(key)}</span><span class="tree-node-value">: ${this.escapeHtml(JSON.stringify(value))}</span>\n`;
+            });
+            html += '</pre></div>';
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    /**
+     * formatReturnValue(value) - Format method return value
+     *
+     * @param {*} value - Return value to display
+     * @returns {string} HTML showing formatted return value
+     */
+    formatReturnValue(value) {
+        let html = '<div class="method-return">';
+
+        if (value === null || value === undefined) {
+            html += `<span style="color: #858585;">${value === null ? 'null' : 'undefined'}</span>`;
+        } else {
+            html += '<pre style="margin: 0; background: #1e1e1e; padding: 8px; border-radius: 4px; overflow-x: auto;">';
+            html += this.escapeHtml(JSON.stringify(value, null, 2));
+            html += '</pre>';
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    /**
+     * attachMethodCallListeners() - Attach event handlers for Method Calls tab
+     *
+     * Handles:
+     * - Toggle button clicks to expand/collapse method details
+     * - Search box to filter methods by name
+     * - Layer and performance filter checkboxes
+     */
+    attachMethodCallListeners() {
+        const list = document.getElementById('method-calls-list');
+        const searchInput = document.getElementById('method-calls-search');
+        const filterCheckboxes = document.querySelectorAll('.method-calls-filter');
+
+        if (!list) return;
+
+        // Attach toggle listeners to all toggle buttons
+        const toggleButtons = list.querySelectorAll('.method-call-toggle');
+        toggleButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.toggleMethodNode(btn);
+            });
+
+            // Keyboard support: Space/Enter to toggle
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    this.toggleMethodNode(btn);
+                }
+            });
+        });
+
+        // Search box listener
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                this.filterMethodCalls();
+            });
+        }
+
+        // Filter checkbox listeners
+        filterCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                this.filterMethodCalls();
+            });
+        });
+    }
+
+    /**
+     * toggleMethodNode(toggleBtn) - Expand/collapse a method call node
+     *
+     * @param {HTMLElement} toggleBtn - The toggle button element
+     */
+    toggleMethodNode(toggleBtn) {
+        const nodeId = toggleBtn.getAttribute('data-node-id');
+        const detailsDiv = document.getElementById(nodeId + '-details');
+
+        if (!detailsDiv) return;
+
+        const isHidden = detailsDiv.classList.contains('hidden');
+
+        if (isHidden) {
+            // Expand
+            detailsDiv.classList.remove('hidden');
+            toggleBtn.classList.remove('collapsed');
+            toggleBtn.setAttribute('aria-expanded', 'true');
+        } else {
+            // Collapse
+            detailsDiv.classList.add('hidden');
+            toggleBtn.classList.add('collapsed');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+        }
+    }
+
+    /**
+     * filterMethodCalls() - Filter method calls based on search and filter options
+     *
+     * Applies:
+     * - Search term (matches method name)
+     * - Layer filter (models only, controllers only)
+     * - Performance filter (methods > 10ms)
+     */
+    filterMethodCalls() {
+        const list = document.getElementById('method-calls-list');
+        const searchInput = document.getElementById('method-calls-search');
+        const showModelsOnly = document.getElementById('filter-models-only')?.checked || false;
+        const showControllersOnly = document.getElementById('filter-controllers-only')?.checked || false;
+        const showSlowOnly = document.getElementById('filter-slow')?.checked || false;
+
+        if (!list || !searchInput) return;
+
+        const searchTerm = searchInput.value.toLowerCase();
+        const nodes = list.querySelectorAll('.method-call-node');
+
+        nodes.forEach(node => {
+            const methodName = node.getAttribute('data-method') || '';
+            const layer = node.getAttribute('data-layer') || '';
+            const duration = parseFloat(node.getAttribute('data-duration')) || 0;
+
+            // Check if matches search
+            const matchesSearch = searchTerm === '' || methodName.toLowerCase().includes(searchTerm);
+
+            // Check layer filters
+            let matchesLayer = true;
+            if (showModelsOnly) {
+                matchesLayer = layer === 'model';
+            } else if (showControllersOnly) {
+                matchesLayer = layer === 'controller';
+            }
+
+            // Check performance filter
+            const matchesPerformance = !showSlowOnly || duration > 10;
+
+            // Show/hide node
+            if (matchesSearch && matchesLayer && matchesPerformance) {
+                node.style.display = '';
             } else {
                 node.style.display = 'none';
             }
