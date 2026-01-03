@@ -88,16 +88,20 @@ def log_method_call(func: Callable) -> Callable:
             return func(*args, **kwargs)
 
         # Extract method name for logging
-        # If this is an instance method, args[0] is 'self'
-        # If this is a static method, there's no 'self'
+        # For instance methods, args[0] is 'self' - extract class from it
+        # For static methods, use __qualname__ which has format "ClassName.method_name"
         if args and hasattr(args[0], '__class__') and \
            hasattr(args[0].__class__, func.__name__):
             # Instance method: include class name
             class_name = args[0].__class__.__name__
             method_name = f"{class_name}.{func.__name__}"
             logged_args = args[1:]  # Remove 'self' from args
+        elif '.' in func.__qualname__:
+            # Static method or class method: __qualname__ contains "ClassName.method_name"
+            method_name = func.__qualname__
+            logged_args = args
         else:
-            # Static method or function
+            # Regular function
             method_name = func.__name__
             logged_args = args
 
