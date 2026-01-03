@@ -14,7 +14,9 @@ Learning Purpose:
 
 import sqlite3
 import os
+import time
 from typing import Any, List, Dict, Optional
+from backend.utils.request_tracker import track_db_query
 
 
 # Database file location
@@ -40,7 +42,7 @@ def get_connection() -> sqlite3.Connection:
 def execute_query(query: str, params: tuple = (), fetch_one: bool = False,
                   fetch_all: bool = False, commit: bool = False) -> Optional[Any]:
     """
-    Execute a SQL query with error handling.
+    Execute a SQL query with error handling and developer panel tracking.
 
     Args:
         query: SQL query string (use ? for parameters)
@@ -70,27 +72,47 @@ def execute_query(query: str, params: tuple = (), fetch_one: bool = False,
     - Models call this function to interact with database
     - Using ? placeholders prevents SQL injection
     - Connection handling is abstracted from models
+    - Developer panel tracks all queries for performance analysis
     """
     conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
+
+        # Track query execution time for developer panel
+        start_time = time.time()
         cursor.execute(query, params)
+        duration_ms = (time.time() - start_time) * 1000
+
+        result = None
+        result_row_count = 0
 
         if commit:
             conn.commit()
             # Return the ID of the inserted row (useful for INSERT operations)
-            return cursor.lastrowid
+            result = cursor.lastrowid
+            result_row_count = cursor.rowcount
         elif fetch_one:
-            result = cursor.fetchone()
+            result_obj = cursor.fetchone()
             # Convert Row object to dict for easier use
-            return dict(result) if result else None
+            result = dict(result_obj) if result_obj else None
+            result_row_count = 1 if result else 0
         elif fetch_all:
             results = cursor.fetchall()
             # Convert Row objects to dicts
-            return [dict(row) for row in results]
+            result = [dict(row) for row in results]
+            result_row_count = len(result)
 
-        return None
+        # Track the query for the developer panel
+        # Converts tuple params to list for JSON serialization
+        track_db_query(
+            query=query,
+            params=list(params) if params else [],
+            result_row_count=result_row_count,
+            duration_ms=round(duration_ms, 2)
+        )
+
+        return result
 
     except sqlite3.Error as e:
         print(f"Database error: {e}")
