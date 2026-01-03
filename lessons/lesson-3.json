@@ -1,0 +1,65 @@
+{
+  "id": 3,
+  "title": "Explore the User Model",
+  "description": "Learn how the Model layer validates data and manages user information",
+  "estimated_time": "10 min",
+  "objectives": [
+    "Understand Model validation rules",
+    "See how create, read, and update operations work in a Model",
+    "Watch validation methods in the dev panel",
+    "Learn that validation belongs in the Model, not the Controller"
+  ],
+  "steps": [
+    {
+      "id": "3-1",
+      "title": "Read the User Model Code",
+      "content": "The User Model defines the structure and rules for user data.\n\nOpen: backend/models/user.py\n\nKey sections:\n- Lines 28-39: User class docstring explaining MVC role\n- Lines 42-43: EMAIL_PATTERN constant\n- Lines 46-90: validate() method\n- Lines 92-140: create() method\n- Lines 142-174: get_by_id() method\n\nNotice:\n- The Model VALIDATES data before saving\n- The Model QUERIES the database\n- The Model returns data structures (dicts) to controllers\n- Business rules (like email validation) live in the Model\n\n✅ DO: Keep validation in the Model\n⚠️ DON'T: Validate in the Controller or View",
+      "hint": "Read the User class docstring (lines 28-39) to understand its MVC role",
+      "checkpoint": null
+    },
+    {
+      "id": "3-2",
+      "title": "Understand Validation Rules",
+      "content": "The User.validate() method (lines 46-90) checks two things:\n\n1. Name validation:\n   - Must not be empty or just whitespace\n   - Raises ValueError if invalid\n\n2. Email validation:\n   - Must not be empty\n   - Must match the EMAIL_PATTERN regex\n   - EMAIL_PATTERN is defined at line 43: r'^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$'\n\nThis regex checks:\n- Before @: word characters, dots, or hyphens\n- After @: same pattern\n- Ends with domain (period + word characters)\n\nValid emails: alice@example.com, bob.smith@test.co.uk\nInvalid emails: alice@, @example.com, alice (no @), alice@example (no TLD)\n\nWhy validate in the Model?\n- Ensures data integrity (all users have valid names/emails)\n- Prevents garbage data from reaching the database\n- Different frontends (web, mobile, API) all use same validation",
+      "hint": "Look at lines 43-90 to see the validation rules and patterns",
+      "checkpoint": null
+    },
+    {
+      "id": "3-3",
+      "title": "Create a New User",
+      "content": "Now let's create a user and watch the validation happen.\n\nIn the application UI, click 'Create User' and fill in the form:\n- Name: Your name (or 'Test User')\n- Email: Your email (or 'test@example.com')\n\nThen click 'Create'.\n\nOpen the Developer Panel and check the 'Method Call Stack' tab.\n\nYou'll see:\n1. UserController.create() called\n2. User.validate() called with your data\n3. User.create() called (if validation passed)\n4. Database INSERT query executed\n5. User.get_by_id() called to fetch the newly created user\n6. Template rendered with the new user\n\nEach step is visible with exact arguments and return values!",
+      "hint": "Create a user and watch the Method Call Stack to see each step",
+      "checkpoint": null
+    },
+    {
+      "id": "3-4",
+      "title": "Try Invalid Data",
+      "content": "Test the validation by submitting invalid data.\n\nTry creating a user with:\n- Empty name (just spaces)\n- Invalid email (like 'notanemail' or 'test@')\n\nWatch what happens:\n1. The form submits to the Controller\n2. Controller calls User.validate()\n3. Validation fails and raises ValueError\n4. Controller catches the error and re-renders the form with error message\n\nIn the Developer Panel 'Method Call Stack':\n- You'll see User.validate() called\n- It raised ValueError\n- The error was caught\n- No INSERT query happened (data never touched database)\n\nThis shows why validation in the Model is essential - it prevents invalid data from being saved!",
+      "hint": "Try submitting an invalid email and watch the Method Call Stack show the validation error",
+      "checkpoint": null
+    },
+    {
+      "id": "3-5",
+      "title": "Read and Update Operations",
+      "content": "The User Model has other important methods:\n\nget_by_id(user_id) - Lines 142-174\n- Queries database for a specific user\n- Returns user dict or None if not found\n- Used when Controller needs to display user details\n\nget_all() - Lines 176-205\n- Queries all users\n- Returns list of user dicts\n- Used for listings and dropdowns\n\nupdate(user_id, name, email) - Lines 207-259\n- Validates new data\n- Checks if user exists\n- Updates database\n- Returns updated user dict\n\ndelete(user_id) - Lines 261-308\n- Checks if user exists\n- Deletes from database\n- Returns boolean (success/failure)\n\nNotice:\n- ALL database operations go through the Model\n- The Model always validates\n- The Model returns appropriate data structures\n- Controllers call Model methods and handle results",
+      "hint": "Scan through the User model methods to see the pattern: validate → database operation → return result",
+      "checkpoint": null
+    }
+  ],
+  "checkpoint": {
+    "type": "code",
+    "description": "Add email validation for .edu domain only",
+    "instructions": "Add a new validation rule to the User.validate() method that checks if the email ends with '.edu'. If not, raise a ValueError with message: 'Email must be a .edu domain'",
+    "codeTemplate": "@staticmethod\n@log_method_call\ndef validate(name: str, email: str) -> None:\n    # Check name is not empty\n    if not name or not name.strip():\n        raise ValueError(\"Name is required and cannot be empty\")\n    \n    # Check email format\n    if not email or not email.strip():\n        raise ValueError(\"Email is required and cannot be empty\")\n    \n    if not re.match(User.EMAIL_PATTERN, email):\n        raise ValueError(f\"Email format invalid: {email}\")\n    \n    # ADD YOUR VALIDATION HERE:\n    # Check that email ends with .edu\n    if not email.endswith('.edu'):\n        raise ValueError(\"Email must be a .edu domain\")",
+    "testSteps": [
+      "Try creating a user with alice@example.com (should fail)",
+      "Try creating a user with alice@college.edu (should succeed)",
+      "Watch the Dev Panel to see your validation being executed"
+    ],
+    "hints": [
+      "Use email.endswith('.edu') to check the domain",
+      "Add the validation AFTER the email format check",
+      "Your error message will be shown to the user"
+    ]
+  }
+}

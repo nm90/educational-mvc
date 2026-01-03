@@ -1,0 +1,76 @@
+{
+  "id": 4,
+  "title": "Explore the Task Model",
+  "description": "Learn about relationships, foreign keys, and how to avoid the N+1 query problem",
+  "estimated_time": "15 min",
+  "objectives": [
+    "Understand one-to-many relationships between Users and Tasks",
+    "See foreign keys and referential integrity",
+    "Learn what the N+1 query problem is and how to avoid it",
+    "Watch JOINs in action through the developer panel",
+    "Understand eager loading vs lazy loading"
+  ],
+  "steps": [
+    {
+      "id": "4-1",
+      "title": "Task Relationships Explained",
+      "content": "Tasks have relationships with Users:\n\n1. owner_id: Every task has an OWNER (the user who created it)\n   - This is a required field (every task must have an owner)\n   - Points to a User record via foreign key\n\n2. assignee_id: Tasks can optionally have an ASSIGNEE (the user working on it)\n   - This is optional (can be NULL)\n   - Also points to a User record via foreign key\n   - One user can own many tasks\n   - One user can be assigned to many tasks\n\nThis is called a ONE-TO-MANY relationship:\n- One user → many tasks (as owner)\n- One user → many tasks (as assignee)\n\nIn the database schema:\n- tasks table has owner_id column (foreign key → users.id)\n- tasks table has assignee_id column (foreign key → users.id, nullable)",
+      "hint": "Open backend/models/task.py and look at the docstring (lines 31-49) for relationship explanation",
+      "checkpoint": null
+    },
+    {
+      "id": "4-2",
+      "title": "Foreign Key Validation",
+      "content": "The Task.validate() method (lines 58-126) checks foreign keys.\n\nLook at lines 111-125:\n```python\n# Check owner_id exists in users table\nowner_query = \"SELECT id FROM users WHERE id = ?\"\nowner = execute_query(owner_query, (owner_id,), fetch_one=True)\nif not owner:\n    raise ValueError(f\"Owner user with ID {owner_id} does not exist\")\n\n# Check assignee_id exists if provided\nif assignee_id is not None:\n    assignee_query = \"SELECT id FROM users WHERE id = ?\"\n    assignee = execute_query(assignee_query, (assignee_id,), fetch_one=True)\n    if not assignee:\n        raise ValueError(f\"Assignee user with ID {assignee_id} does not exist\")\n```\n\nThis ensures:\n- Owner user exists before creating task\n- Assignee user exists (if provided)\n- No orphaned tasks (tasks pointing to non-existent users)\n- Data integrity at the application level\n\nIn real databases, you'd use database constraints. But this shows validation at the Model level.",
+      "hint": "Look at lines 111-125 to see foreign key validation in the Model",
+      "checkpoint": null
+    },
+    {
+      "id": "4-3",
+      "title": "The N+1 Query Problem",
+      "content": "Here's a critical performance problem. Let's say you want to list all tasks with their owner names.\n\nBAD APPROACH (N+1 problem):\n```python\ntasks = Task.get_all()  # Query 1: Fetch all tasks\nfor task in tasks:\n    owner = User.get_by_id(task['owner_id'])  # Query 2, 3, 4...\n    print(f\"{task['title']} - Owner: {owner['name']}\")\n```\n\nFor 100 tasks, this causes 101 queries:\n- 1 query to get all tasks\n- 100 queries to get each owner (1 per task)\n- Total: 101 queries! 😱\n\nThis is called N+1 because you make 1 initial query + N additional queries.\n\nLook at Task.get_all() docstring (lines 345-369) - it shows this problem!\n\nGOOD APPROACH (eager loading):\n```python\ntasks = Task.get_all(include_relations=True)  # Single query with JOINs!\nfor task in tasks:\n    print(f\"{task['title']} - Owner: {task['owner']['name']}\")\n```\n\nFor 100 tasks, this causes 1 query with JOINs!\n✅ DO: Use include_relations=True when you need related data\n⚠️ DON'T: Loop and query users - it causes N+1 problem",
+      "hint": "Read the N+1 Problem section in Task.get_all() docstring (lines 345-369)",
+      "checkpoint": null
+    },
+    {
+      "id": "4-4",
+      "title": "JOINs and Eager Loading",
+      "content": "Look at Task.get_by_id() with include_relations=True (lines 276-323).\n\nThe key SQL query:\n```sql\nSELECT\n    tasks.*,\n    owner.id as owner_user_id,\n    owner.name as owner_name,\n    ...\n    assignee.id as assignee_user_id,\n    assignee.name as assignee_name,\n    ...\nFROM tasks\nINNER JOIN users as owner ON tasks.owner_id = owner.id\nLEFT JOIN users as assignee ON tasks.assignee_id = assignee.id\nWHERE tasks.id = ?\n```\n\nNotice:\n- INNER JOIN users as owner: Gets owner data (required)\n- LEFT JOIN users as assignee: Gets assignee data (optional - could be NULL)\n- Single query retrieves both task AND user data\n\nThe Python code (lines 299-321) transforms the flat result into nested structure:\n```python\ntask = {\n    'id': result['id'],\n    'title': result['title'],\n    ...\n    'owner': {\n        'id': result['owner_user_id'],\n        'name': result['owner_name'],\n        ...\n    },\n    'assignee': {...} or None\n}\n```\n\nThis nested structure makes it easy to access data in templates and controllers.",
+      "hint": "Look at the SQL query in Task.get_by_id() (lines 276-291) to see INNER JOIN and LEFT JOIN",
+      "checkpoint": null
+    },
+    {
+      "id": "4-5",
+      "title": "Create a Task",
+      "content": "Let's create a task and watch the relationships happen.\n\nIn the application UI, click 'Create Task' and fill in:\n- Title: 'Learn MVC Architecture'\n- Description: 'Understanding the Model-View-Controller pattern'\n- Status: 'todo'\n- Priority: 'high'\n- Owner: Select a user\n- Assignee: Select a user (or leave empty)\n\nClick 'Create'.\n\nOpen the Developer Panel 'Method Call Stack'.\n\nYou'll see:\n1. TaskController.create() called\n2. Task.validate() called\n   - Queries to check owner_id exists\n   - Queries to check assignee_id exists (if provided)\n3. Task.create() called\n4. INSERT query: INSERT INTO tasks (...) VALUES (...)\n5. Task.get_by_id() called to fetch the created task\n6. Template rendered\n\nNotice all the validation queries that ensure foreign keys exist!",
+      "hint": "Create a task and watch the Method Call Stack to see foreign key validation",
+      "checkpoint": null
+    },
+    {
+      "id": "4-6",
+      "title": "View Task with Relationships",
+      "content": "Now view the task you just created.\n\nClick on it in the task list or view its detail page.\n\nOpen the Developer Panel and check:\n\n1. Method Call Stack:\n   - TaskController.show() called\n   - Task.get_by_id(task_id, include_relations=True) called\n   - No separate User queries!\n   - Task returned with nested owner and assignee\n\n2. Database Inspector:\n   - Single SELECT query with JOINs\n   - Shows the INNER JOIN for owner\n   - Shows the LEFT JOIN for assignee\n   - Much more efficient than N+1 approach\n\n3. State Inspector:\n   - Shows task data with nested owner object\n   - Shows assignee object (or null if unassigned)\n   - See the complete data structure\n\nCompare this to Lesson 2 where we saw the simple task list query.\nThis query is more complex but still just ONE query!",
+      "hint": "View a task detail and check the Database Inspector to see the JOIN query",
+      "checkpoint": null
+    }
+  ],
+  "checkpoint": {
+    "type": "code",
+    "description": "Update task status to 'done'",
+    "instructions": "Find a task in the system and update its status to 'done' using the Task.update() method. Watch the dev panel to confirm the UPDATE query is executed.",
+    "codeTemplate": "# In TaskController.update() or through the UI edit form:\nupdated_task = Task.update(\n    task_id=1,\n    status='done'\n)\n\n# Task.update() handles:\n# 1. Fetching current task data\n# 2. Merging with new values (status='done')\n# 3. Validating all fields\n# 4. Executing UPDATE query\n# 5. Returning updated task with new updated_at timestamp",
+    "testSteps": [
+      "Create or find a task in the application",
+      "Click the 'Edit' button or access the edit form",
+      "Change the status dropdown to 'done'",
+      "Click 'Update'",
+      "Open Developer Panel 'Database Inspector'",
+      "See the UPDATE query with new status and updated_at timestamp"
+    ],
+    "hints": [
+      "The Task.update() method is in backend/models/task.py, lines 430-519",
+      "It automatically updates the updated_at field to CURRENT_TIMESTAMP",
+      "Check the Database Inspector tab to see the UPDATE query"
+    ]
+  }
+}

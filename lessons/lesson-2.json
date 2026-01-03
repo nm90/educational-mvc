@@ -1,0 +1,61 @@
+{
+  "id": 2,
+  "title": "Understand Data Flow",
+  "description": "Watch a request travel through the MVC layers - from user interaction through the controller, model, and back to the view",
+  "estimated_time": "10 min",
+  "objectives": [
+    "Trace a complete request through all MVC layers",
+    "Understand how data flows from user action to database query",
+    "See how the developer panel reveals the entire flow",
+    "Recognize which layer handles which responsibility"
+  ],
+  "steps": [
+    {
+      "id": "2-1",
+      "title": "Open the Task List",
+      "content": "Let's trace what happens when you load the tasks page.\n\nStart by clicking the 'View Tasks' button in the application, or navigate to /tasks.\n\nThen open the Developer Panel (bottom right corner) and look at the 'Flow Diagram' tab.\n\nWhat you're about to see is the complete MVC flow captured in real-time!",
+      "hint": "Click the 'View Tasks' button, then look for the Developer Panel at the bottom right",
+      "checkpoint": null
+    },
+    {
+      "id": "2-2",
+      "title": "The User Interaction (View Layer)",
+      "content": "Step 1: User clicks button\n\nWhen you clicked 'View Tasks', your browser sent an HTTP request to the server.\n\nThis is the user INTERACTING WITH THE VIEW. The View is just HTML - it doesn't know anything about data or logic. It just sends a request.\n\nIn the developer panel, check the 'Network Inspector' tab to see the actual request:\n- Method: GET\n- URL: /tasks\n- Status: 200 (success)",
+      "hint": "Check the Network Inspector tab in the Developer Panel to see the HTTP request",
+      "checkpoint": null
+    },
+    {
+      "id": "2-3",
+      "title": "The Controller Receives the Request",
+      "content": "Step 2: Controller routes the request\n\nThe Flask server received your GET /tasks request and routed it to the TaskController.\n\nLook at the code: backend/controllers/task_controller.py, line 81-121\n\nThe `index()` function is the Controller method that handles this request.\n\nNotice what the Controller does:\n- It DOESN'T query the database directly\n- It CALLS A MODEL METHOD: Task.get_all()\n- It PASSES DATA TO A VIEW\n\nThis is the Controller's job: coordinate between Models and Views.",
+      "hint": "Look at the @tasks_bp.route('/') method (the index function) in task_controller.py",
+      "checkpoint": null
+    },
+    {
+      "id": "2-4",
+      "title": "The Model Queries the Database",
+      "content": "Step 3: Model queries database\n\nWhen the Controller called Task.get_all(), it triggered the Model layer.\n\nLook at: backend/models/task.py, lines 327-428\n\nNotice:\n- The Model executes the SQL query: SELECT * FROM tasks...\n- It uses JOINs to efficiently load related users\n- The Model returns a list of task dictionaries\n\nIn the Developer Panel, check the 'Database Inspector' tab to see:\n- The exact SQL query executed\n- How long it took\n- The results returned",
+      "hint": "Check the Database Inspector tab to see the actual SQL query and execution time",
+      "checkpoint": null
+    },
+    {
+      "id": "2-5",
+      "title": "The View Renders the Response",
+      "content": "Step 4: View renders HTML\n\nThe Controller received data from the Model and passed it to a template (View).\n\nThe View template is: backend/templates/tasks/index.html\n\nThe template takes the task data and renders it as HTML.\n\nNotice the separation:\n- Model: Handles data and queries\n- Controller: Orchestrates (calls Model, decides which View to render)\n- View: Just displays data as HTML\n\nIn the Developer Panel, check the 'State Inspector' tab to see:\n- What data was passed to the template\n- The structure of that data",
+      "hint": "Check the State Inspector tab to see what data was passed to the View",
+      "checkpoint": null
+    },
+    {
+      "id": "2-6",
+      "title": "The Method Call Stack",
+      "content": "Step 5: Complete flow visibility\n\nThis is the magic of the Developer Panel: you can see EVERYTHING.\n\nGo to the 'Method Call Stack' tab and expand the tree.\n\nYou'll see:\n- TaskController.index() called\n  - Task.get_all() called\n    - Database query executed\n  - Results returned\n  - Template rendered\n\nEach method call shows:\n- Method name\n- Arguments passed in\n- Return value\n- Execution time\n- Exact line in code\n\nClick on any method to jump to the code!",
+      "hint": "Click on Method Call Stack tab and expand the tree to see each method call",
+      "checkpoint": {
+        "type": "quiz",
+        "question": "In the MVC flow you just traced, which layer executed the SQL query?",
+        "options": ["View", "Controller", "Model"],
+        "correct": "Model"
+      }
+    }
+  ]
+}
