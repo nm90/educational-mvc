@@ -117,7 +117,7 @@ Create the initial project structure:
 
 4. Create directory structure:
    - backend/ (models/, controllers/, utils/, database/, templates/)
-   - frontend/public/ (css/, js/)
+   - backend/static/ (css/, js/)
    - lessons/, docker/, docs/
 
 5. Create basic README.md with:
@@ -1067,8 +1067,8 @@ Dual-mode controllers that support both traditional HTML and modern async JSON r
 #### Feature 2.8: Developer Panel - Base UI Structure
 **Time**: 60min
 **Files to create**:
-- `/frontend/public/css/devpanel.css`
-- `/frontend/public/js/devPanel.js`
+- `/backend/static/css/devpanel.css`
+- `/backend/static/js/devPanel.js`
 - Update `/backend/templates/base.html`
 
 **Agent Prompt**:
@@ -1083,7 +1083,7 @@ CONTEXT:
 
 TASK:
 
-1. Create frontend/public/css/devpanel.css:
+1. Create backend/static/css/devpanel.css:
    - Panel container: fixed position, bottom/right of page
    - Tabs: horizontal tab bar
    - Content area: scrollable, monospace font
@@ -1091,7 +1091,7 @@ TASK:
    - Dark theme (developer tool aesthetic)
    - Resizable panel (drag to resize)
 
-2. Create frontend/public/js/devPanel.js:
+2. Create backend/static/js/devPanel.js:
 
    - DevPanel class with methods:
 
@@ -1130,9 +1130,9 @@ TASK:
    - Add toggle button: fixed bottom-right corner
 
 4. Static file serving:
-   - Configure Flask to serve /frontend/public as static files
-   - Route: /css/... → frontend/public/css/
-   - Route: /js/... → frontend/public/js/
+   - Configure Flask to serve /backend/static as static files
+   - Route: /css/... → backend/static/css/
+   - Route: /js/... → backend/static/js/
 
 IMPORTANT:
 - Panel should not interfere with main app UI
@@ -1151,7 +1151,7 @@ When complete:
 #### Feature 2.9: Dev Panel Tab 1 - State Inspector
 **Time**: 45min
 **Files to modify**:
-- `/frontend/public/js/devPanel.js`
+- `/backend/static/js/devPanel.js`
 
 **Agent Prompt**:
 ```
@@ -1164,7 +1164,7 @@ CONTEXT:
 - Read from window.__DEBUG__.view_data
 
 TASK:
-Update frontend/public/js/devPanel.js:
+Update backend/static/js/devPanel.js:
 
 1. Implement renderStateInspector():
 
@@ -1224,7 +1224,7 @@ When complete:
 #### Feature 2.10: Dev Panel Tab 2 - Method Call Stack
 **Time**: 45min
 **Files to modify**:
-- `/frontend/public/js/devPanel.js`
+- `/backend/static/js/devPanel.js`
 
 **Agent Prompt**:
 ```
@@ -1237,7 +1237,7 @@ CONTEXT:
 - Helps students trace execution flow through MVC layers
 
 TASK:
-Update frontend/public/js/devPanel.js:
+Update backend/static/js/devPanel.js:
 
 1. Implement renderMethodCalls():
 
@@ -1304,7 +1304,7 @@ When complete:
 #### Feature 2.11: Dev Panel Tab 3 - Database Inspector
 **Time**: 45min
 **Files to modify**:
-- `/frontend/public/js/devPanel.js`
+- `/backend/static/js/devPanel.js`
 
 **Agent Prompt**:
 ```
@@ -1317,7 +1317,7 @@ CONTEXT:
 - Teaches students about database operations and N+1 problems
 
 TASK:
-Update frontend/public/js/devPanel.js:
+Update backend/static/js/devPanel.js:
 
 1. Implement renderDatabaseQueries():
 
@@ -1385,7 +1385,7 @@ When complete:
 #### Feature 2.12: Dev Panel Tab 4 - Network Inspector
 **Time**: 30min
 **Files to modify**:
-- `/frontend/public/js/devPanel.js`
+- `/backend/static/js/devPanel.js`
 
 **Agent Prompt**:
 ```
@@ -1398,7 +1398,7 @@ CONTEXT:
 - Helps students understand request-response cycle
 
 TASK:
-Update frontend/public/js/devPanel.js:
+Update backend/static/js/devPanel.js:
 
 1. Implement renderNetworkInspector():
 
@@ -1464,8 +1464,8 @@ When complete:
 #### Feature 2.13: Dev Panel Tab 5 - Flow Diagram
 **Time**: 60min
 **Files to modify**:
-- `/frontend/public/js/devPanel.js`
-- `/frontend/public/css/devpanel.css`
+- `/backend/static/js/devPanel.js`
+- `/backend/static/css/devpanel.css`
 
 **Agent Prompt**:
 ```
@@ -1478,7 +1478,7 @@ CONTEXT:
 - Most visual/educational tab
 
 TASK:
-Update frontend/public/js/devPanel.js:
+Update backend/static/js/devPanel.js:
 
 1. Implement renderFlowDiagram():
 
@@ -1526,7 +1526,7 @@ Update frontend/public/js/devPanel.js:
    5. View Rendering: 12.3ms
    ```
 
-Update frontend/public/css/devpanel.css:
+Update backend/static/css/devpanel.css:
 - Add styles for SVG diagram
 - Animation keyframes
 - Phase highlighting colors
@@ -1631,7 +1631,7 @@ Update the developer panel to track and display request history:
    - Format: UUID already generated (from Feature 2.1)
    - Also include: request_method, request_url, request_timestamp
 
-2. Update frontend/public/js/devPanel.js:
+2. Update backend/static/js/devPanel.js:
 
    - Add requestHistory array:
      * Store up to 20 most recent requests
@@ -1663,7 +1663,7 @@ Update the developer panel to track and display request history:
      * Show "Current" vs "History" clearly
      * Clear history button (with confirmation)
 
-3. Update frontend/public/css/devpanel.css:
+3. Update backend/static/css/devpanel.css:
 
    - Style request selector:
      * Clean dropdown/list appearance
@@ -1738,7 +1738,7 @@ When complete:
 **Time**: 45min
 **Files to create**:
 - `/lessons/lesson-1.json`
-- `/frontend/public/js/lessonEngine.js`
+- `/backend/static/js/lessonEngine.js`
 
 **Agent Prompt**:
 ```
@@ -1794,7 +1794,7 @@ TASK:
    }
    ```
 
-2. Create frontend/public/js/lessonEngine.js:
+2. Create backend/static/js/lessonEngine.js:
 
    - LessonEngine class:
 
@@ -1846,8 +1846,8 @@ When complete:
 #### Feature 3.2: Lesson Panel UI Component
 **Time**: 60min
 **Files to create**:
-- `/frontend/public/css/lessonPanel.css`
-- Update `/frontend/public/js/lessonEngine.js`
+- `/backend/static/css/lessonPanel.css`
+- Update `/backend/static/js/lessonEngine.js`
 - Update `/backend/templates/base.html`
 
 **Agent Prompt**:
@@ -1862,7 +1862,7 @@ CONTEXT:
 
 TASK:
 
-1. Create frontend/public/css/lessonPanel.css:
+1. Create backend/static/css/lessonPanel.css:
    - Panel: fixed left sidebar (300px wide)
    - Collapsible toggle button
    - Lesson header: title, progress bar
@@ -1871,7 +1871,7 @@ TASK:
    - Checkpoint UI: quiz questions, code validation
    - Color scheme: educational (blues, greens)
 
-2. Update frontend/public/js/lessonEngine.js:
+2. Update backend/static/js/lessonEngine.js:
 
    - Add UI rendering methods:
 
@@ -1995,7 +1995,7 @@ When complete:
 **Files to create**:
 - `/backend/utils/checkpoint_validator.py`
 - `/backend/controllers/lesson_controller.py`
-- Update `/frontend/public/js/lessonEngine.js`
+- Update `/backend/static/js/lessonEngine.js`
 
 **Agent Prompt**:
 ```
@@ -2040,7 +2040,7 @@ TASK:
      * Return user's progress for lesson
      * Completed steps, checkpoints passed
 
-3. Update frontend/public/js/lessonEngine.js:
+3. Update backend/static/js/lessonEngine.js:
 
    - submitCheckpoint(code):
      * POST code to /lessons/<id>/checkpoint
@@ -2147,7 +2147,7 @@ When complete:
 #### Feature 3.6: Lesson Progress Tracking & Persistence
 **Time**: 30min
 **Files to modify**:
-- `/frontend/public/js/lessonEngine.js`
+- `/backend/static/js/lessonEngine.js`
 
 **Agent Prompt**:
 ```
@@ -2160,7 +2160,7 @@ CONTEXT:
 - Persist to localStorage (client-side for now)
 
 TASK:
-Update frontend/public/js/lessonEngine.js:
+Update backend/static/js/lessonEngine.js:
 
 1. Progress data structure:
    ```javascript
@@ -2235,8 +2235,8 @@ When complete:
 #### Feature 4.1: Mode Switcher Component
 **Time**: 30min
 **Files to create**:
-- `/frontend/public/js/modeManager.js`
-- `/frontend/public/css/modeManager.css`
+- `/backend/static/js/modeManager.js`
+- `/backend/static/css/modeManager.css`
 - Update `/backend/templates/base.html`
 
 **Agent Prompt**:
@@ -2251,7 +2251,7 @@ CONTEXT:
 
 TASK:
 
-1. Create frontend/public/js/modeManager.js:
+1. Create backend/static/js/modeManager.js:
 
    - ModeManager class:
 
@@ -2275,7 +2275,7 @@ TASK:
      isExplorationMode():
      - Return boolean
 
-2. Create frontend/public/css/modeManager.css:
+2. Create backend/static/css/modeManager.css:
    - Toggle switch styling (Tutorial ↔ Exploration)
    - Smooth transition animations
    - Active mode highlighted
@@ -2319,7 +2319,7 @@ When complete:
 #### Feature 4.2: Feature Locking in Tutorial Mode
 **Time**: 45min
 **Files to modify**:
-- `/frontend/public/js/modeManager.js`
+- `/backend/static/js/modeManager.js`
 - `/backend/templates/users/index.html`
 - `/backend/templates/tasks/index.html`
 
@@ -2335,7 +2335,7 @@ CONTEXT:
 
 TASK:
 
-1. Update frontend/public/js/modeManager.js:
+1. Update backend/static/js/modeManager.js:
 
    - Feature lock configuration:
      ```javascript
@@ -2395,8 +2395,8 @@ When complete:
 #### Feature 4.3: Dev Panel Integration with Lessons
 **Time**: 30min
 **Files to modify**:
-- `/frontend/public/js/devPanel.js`
-- `/frontend/public/js/lessonEngine.js`
+- `/backend/static/js/devPanel.js`
+- `/backend/static/js/lessonEngine.js`
 
 **Agent Prompt**:
 ```
@@ -2409,7 +2409,7 @@ CONTEXT:
 
 TASK:
 
-1. Update frontend/public/js/devPanel.js:
+1. Update backend/static/js/devPanel.js:
 
    - highlightTab(tabName):
      * Add pulsing border to tab button
@@ -2423,7 +2423,7 @@ TASK:
      * Subscribe to lesson step changes
      * Update highlights based on current lesson
 
-2. Update frontend/public/js/lessonEngine.js:
+2. Update backend/static/js/lessonEngine.js:
 
    - Add devPanelHint to lesson steps:
      ```json
@@ -2462,8 +2462,8 @@ When complete:
 #### Feature 4.4: Polish UI/UX and Accessibility
 **Time**: 45min
 **Files to modify**:
-- `/frontend/public/css/devpanel.css`
-- `/frontend/public/css/lessonPanel.css`
+- `/backend/static/css/devpanel.css`
+- `/backend/static/css/lessonPanel.css`
 - `/backend/templates/base.html`
 
 **Agent Prompt**:
@@ -2478,14 +2478,14 @@ CONTEXT:
 
 TASK:
 
-1. Update frontend/public/css/devpanel.css:
+1. Update backend/static/css/devpanel.css:
    - Improve contrast ratios (WCAG AA compliance)
    - Add focus indicators for keyboard navigation
    - Smooth transitions and animations
    - Better typography (readable font sizes)
    - Consistent spacing (use CSS variables)
 
-2. Update frontend/public/css/lessonPanel.css:
+2. Update backend/static/css/lessonPanel.css:
    - Match dev panel styling
    - Improve readability
    - Better button states (hover, active, disabled)
@@ -2531,8 +2531,8 @@ When complete:
 **Time**: 30min
 **Files to modify**:
 - `/backend/app.py`
-- `/frontend/public/js/devPanel.js`
-- `/frontend/public/js/lessonEngine.js`
+- `/backend/static/js/devPanel.js`
+- `/backend/static/js/lessonEngine.js`
 
 **Agent Prompt**:
 ```
@@ -2563,7 +2563,7 @@ TASK:
      * Field-level errors
      * Human-readable messages
 
-2. Update frontend/public/js/devPanel.js:
+2. Update backend/static/js/devPanel.js:
 
    - Handle missing __DEBUG__:
      * Show "No debug data" message
@@ -2575,7 +2575,7 @@ TASK:
      * Show error in panel
      * Preserve user's work
 
-3. Update frontend/public/js/lessonEngine.js:
+3. Update backend/static/js/lessonEngine.js:
 
    - Handle missing lessons:
      * Show "Lesson not found" message
