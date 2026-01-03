@@ -54,15 +54,15 @@ educational-mvc/
 │   ├── controllers/        # Controller layer (routes, orchestration)
 │   ├── utils/              # Decorators, logging, request tracking
 │   ├── database/           # SQLite connection, schema, migrations
-│   └── templates/          # Jinja2 view templates
-├── frontend/               # JavaScript client
-│   ├── public/
-│   │   ├── index.html      # Main HTML entry
-│   │   ├── css/           # Stylesheets
-│   │   └── js/            # Client-side JavaScript
-│   │       ├── main.js    # App initialization
-│   │       ├── devPanel.js # Developer panel component
-│   │       └── lessons.js  # Lesson engine
+│   ├── templates/          # Jinja2 view templates
+│   └── static/             # Static assets (CSS, JS, etc.)
+│       ├── css/            # Stylesheets
+│       │   └── devpanel.css
+│       ├── js/             # Client-side JavaScript
+│       │   ├── mvc-api.js      # API client with debug extraction
+│       │   ├── mvc-forms.js    # Form interception handler
+│       │   └── devPanel.js     # Developer panel component
+│       └── index.html       # Main HTML entry
 ├── lessons/               # JSON lesson files (Lesson 1-8)
 ├── docker/                # Docker configuration
 ├── docs/                  # Documentation
