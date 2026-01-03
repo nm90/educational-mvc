@@ -1,0 +1,25 @@
+{
+  "name": "educational-mvc",
+  "version": "0.1.0",
+  "description": "An interactive educational application for learning MVC architecture with transparent developer tools",
+  "main": "index.js",
+  "scripts": {
+    "setup": "pip install -r requirements.txt && python backend/database/init_db.py",
+    "start": "python backend/app.py",
+    "dev": "python backend/app.py --debug",
+    "docker-build": "docker-compose build",
+    "docker-up": "docker-compose up",
+    "docker-down": "docker-compose down"
+  },
+  "keywords": [
+    "mvc",
+    "architecture",
+    "educational",
+    "flask",
+    "javascript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {}
+}
