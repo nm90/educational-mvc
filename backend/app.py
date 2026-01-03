@@ -28,6 +28,10 @@ from flask_cors import CORS
 from backend.controllers.user_controller import users_bp
 from backend.controllers.task_controller import tasks_bp
 
+# Import Request Tracking Middleware
+# Middleware logs all method calls and database queries for the developer panel
+from backend.utils.request_tracker import register_request_tracking
+
 # ============================================================================
 # APPLICATION INITIALIZATION
 # ============================================================================
@@ -59,6 +63,16 @@ app.config['DATABASE_PATH'] = os.path.join(DATABASE_DIR, 'educational_mvc.db')
 # Without CORS, browsers would block requests from the frontend to the API
 
 CORS(app)
+
+
+# ============================================================================
+# REQUEST TRACKING MIDDLEWARE
+# ============================================================================
+# Register middleware to track all requests, method calls, and database queries
+# This enables the developer panel to show complete execution flow
+# See backend/utils/request_tracker.py for implementation details
+
+register_request_tracking(app)
 
 
 # ============================================================================

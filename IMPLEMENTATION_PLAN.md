@@ -738,7 +738,2133 @@ When complete:
 
 **Goal**: Full dev panel showing Python execution (all 5 tabs functional)
 
-*[Rest of the plan continues with all features 2.1-2.10, 3.1-3.6, 4.1-4.5, and 5.1-5.6 - same content as above]*
+#### Feature 2.1: Request Tracking Middleware
+**Time**: 45min
+**Files to create**:
+- `/backend/utils/__init__.py`
+- `/backend/utils/request_tracker.py`
+
+**Agent Prompt**:
+```
+You are implementing request tracking for the Educational MVC App developer panel.
+
+CONTEXT:
+- Every HTTP request needs a unique ID
+- Track all method calls, database queries, timing info
+- This data will be displayed in the developer panel
+- Uses Flask's 'g' object for request-scoped storage
+
+TASK:
+Create backend/utils/request_tracker.py:
+
+1. Request tracking data structure:
+   - request_id: unique UUID for each request
+   - method_calls: list of all Python method invocations
+   - db_queries: list of all SQL queries executed
+   - timing: dict of timestamps (request_start, request_end, phases)
+   - view_data: data passed to template
+
+2. Flask middleware functions:
+
+   before_request():
+   - Generate unique request_id
+   - Store in flask.g.request_id
+   - Initialize g.tracking = {method_calls: [], db_queries: [], timing: {}}
+   - Record request_start timestamp
+
+   after_request(response):
+   - Record request_end timestamp
+   - Inject __DEBUG__ object into HTML response
+   - __DEBUG__ contains: request_id, method_calls, db_queries, timing, view_data
+   - Return modified response
+
+3. Helper functions:
+
+   track_method_call(method_name, args, kwargs, return_value, duration):
+   - Append to g.tracking['method_calls']
+   - Store: method name, args, kwargs, return value, duration
+
+   track_db_query(query, params, result, duration):
+   - Append to g.tracking['db_queries']
+   - Store: SQL query text, parameters, result row count, duration
+
+   track_view_data(data):
+   - Store data passed to template in g.tracking['view_data']
+
+4. Documentation:
+   - Module docstring: Explain request tracking purpose
+   - Comment about Flask 'g' object (request-scoped)
+   - Note: "This enables the developer panel to show full execution flow"
+
+5. Register middleware in app.py:
+   - app.before_request(before_request)
+   - app.after_request(after_request)
+
+IMPORTANT:
+- Use uuid4() for request IDs
+- Inject __DEBUG__ only into HTML responses (check content-type)
+- Format: <script>window.__DEBUG__ = {...JSON...};</script> before </body>
+- Keep tracking lightweight (don't slow down requests)
+
+When complete:
+- Commit: "feat: implement request tracking middleware"
+- Ask user to load a page and check HTML source for __DEBUG__ object
+```
+
+**Test Steps**: Load page, view source, verify __DEBUG__ object exists in HTML
+
+#### Feature 2.2: Method Logging Decorator
+**Time**: 45min
+**Files to create**:
+- `/backend/utils/decorators.py`
+
+**Agent Prompt**:
+```
+You are creating the @log_method_call decorator for transparent method tracking.
+
+CONTEXT:
+- Every Model method will be decorated with @log_method_call
+- Decorator captures: method name, arguments, return value, execution time
+- Data sent to request_tracker for dev panel display
+- This is core to the "no magic" philosophy
+
+TASK:
+Create backend/utils/decorators.py:
+
+1. Implement @log_method_call decorator:
+
+   - Wraps any function/method
+   - Captures:
+     * Method name (qualified: "User.create")
+     * Arguments (args, kwargs)
+     * Return value
+     * Execution time (milliseconds)
+
+   - Calls request_tracker.track_method_call() with captured data
+
+   - Returns original return value (transparent)
+
+2. Handle edge cases:
+   - Methods that raise exceptions (log the exception)
+   - Methods with large return values (truncate if > 1000 chars)
+   - Methods called outside request context (skip tracking gracefully)
+
+3. Documentation:
+   - Docstring: "Decorator to log method invocations for developer panel"
+   - Example usage:
+     ```python
+     @log_method_call
+     def create(name, email):
+         # method implementation
+     ```
+   - Comment: "Enables transparent visibility into MVC method flow"
+
+4. Apply decorator to all Model methods:
+   - Update User model: add @log_method_call to all methods
+   - Update Task model: add @log_method_call to all methods
+
+IMPORTANT:
+- Use functools.wraps to preserve method metadata
+- Use time.perf_counter() for precise timing
+- Don't log sensitive data (passwords, tokens)
+- Make decorator opt-in (don't auto-apply everywhere)
+
+When complete:
+- Commit: "feat: implement method logging decorator"
+- Ask user to trigger User.create() and check __DEBUG__.method_calls in HTML
+```
+
+**Test Steps**: Create a user, verify method_calls array contains create() invocation
+
+#### Feature 2.3: Database Query Logging
+**Time**: 45min
+**Files to modify**:
+- `/backend/database/connection.py`
+
+**Agent Prompt**:
+```
+You are adding SQL query logging to the database connection layer.
+
+CONTEXT:
+- Every database query needs to be tracked
+- Log: SQL text, parameters, result size, execution time
+- Send to request_tracker for dev panel
+- This shows students exactly what queries are executed
+
+TASK:
+Update backend/database/connection.py:
+
+1. Modify execute_query() function:
+
+   - Capture query start time
+   - Execute the query
+   - Capture query end time
+   - Calculate duration
+
+   - Call request_tracker.track_db_query():
+     * query: SQL string
+     * params: query parameters (list/dict)
+     * result: row count or affected rows
+     * duration: milliseconds
+
+   - Return query results as before
+
+2. Handle different query types:
+   - SELECT: return fetched rows, track row count
+   - INSERT: return lastrowid, track affected rows
+   - UPDATE/DELETE: return rowcount, track affected rows
+
+3. Add query logging toggle:
+   - Environment variable: ENABLE_QUERY_LOGGING (default: True)
+   - Skip logging if disabled (for production)
+
+4. Documentation:
+   - Update docstring: "Executes SQL query with automatic logging"
+   - Comment: "All queries visible in dev panel Database Inspector tab"
+   - Add examples of logged query format
+
+IMPORTANT:
+- Preserve existing query behavior (don't break things)
+- Handle query errors gracefully (log the error too)
+- Don't log actual data (just row counts)
+- Be careful with SQL injection (use parameterized queries)
+
+When complete:
+- Commit: "feat: add database query logging"
+- Ask user to create a user and verify __DEBUG__.db_queries contains INSERT query
+```
+
+**Test Steps**: Perform CRUD operation, check __DEBUG__.db_queries for SQL
+
+#### Feature 2.4: Developer Panel - Base UI Structure
+**Time**: 60min
+**Files to create**:
+- `/frontend/public/css/devpanel.css`
+- `/frontend/public/js/devPanel.js`
+- Update `/backend/templates/base.html`
+
+**Agent Prompt**:
+```
+You are creating the Developer Panel UI structure (no tab content yet).
+
+CONTEXT:
+- Panel appears at bottom or side of page (toggle-able)
+- Has 5 tabs: State Inspector, Method Calls, Flow Diagram, Network, Database
+- Reads window.__DEBUG__ injected by backend
+- This is the main learning tool for students
+
+TASK:
+
+1. Create frontend/public/css/devpanel.css:
+   - Panel container: fixed position, bottom/right of page
+   - Tabs: horizontal tab bar
+   - Content area: scrollable, monospace font
+   - Toggle button: floating button to show/hide panel
+   - Dark theme (developer tool aesthetic)
+   - Resizable panel (drag to resize)
+
+2. Create frontend/public/js/devPanel.js:
+
+   - DevPanel class with methods:
+
+     init():
+     - Create panel HTML structure
+     - Insert into document
+     - Attach event listeners
+     - Load __DEBUG__ data
+
+     createTabs():
+     - Create 5 tab buttons: State, Methods, Flow, Network, Database
+     - Attach click handlers to switch tabs
+
+     loadDebugData():
+     - Read window.__DEBUG__ object
+     - Store in this.debugData
+     - Update current tab display
+
+     toggle():
+     - Show/hide panel
+     - Save state to localStorage
+
+     switchTab(tabName):
+     - Hide all tab content
+     - Show selected tab content
+     - Highlight active tab button
+
+     renderTabContent(tabName):
+     - Placeholder: "Tab content coming soon"
+     - Will be implemented in next features
+
+3. Update backend/templates/base.html:
+   - Add <link> to devpanel.css
+   - Add <script src="/js/devPanel.js"></script>
+   - Add initialization: <script>new DevPanel().init();</script>
+   - Add toggle button: fixed bottom-right corner
+
+4. Static file serving:
+   - Configure Flask to serve /frontend/public as static files
+   - Route: /css/... → frontend/public/css/
+   - Route: /js/... → frontend/public/js/
+
+IMPORTANT:
+- Panel should not interfere with main app UI
+- Make it collapsible (hidden by default)
+- Use semantic HTML for accessibility
+- Add CSS comments organizing styles
+- Panel should look professional (dev tool quality)
+
+When complete:
+- Commit: "feat: create developer panel base UI structure"
+- Ask user to test: toggle panel open/close, switch between tabs
+```
+
+**Test Steps**: Open panel, switch tabs, verify no JavaScript errors
+
+#### Feature 2.5: Dev Panel Tab 1 - State Inspector
+**Time**: 45min
+**Files to modify**:
+- `/frontend/public/js/devPanel.js`
+
+**Agent Prompt**:
+```
+You are implementing the State Inspector tab of the developer panel.
+
+CONTEXT:
+- Shows data passed to the current view template
+- Displays as expandable JSON tree
+- Lets students see exactly what data the controller sent to view
+- Read from window.__DEBUG__.view_data
+
+TASK:
+Update frontend/public/js/devPanel.js:
+
+1. Implement renderStateInspector():
+
+   - Read this.debugData.view_data
+   - Render as expandable JSON tree
+   - Format:
+     * Objects: collapsible with expand/collapse icons
+     * Arrays: show length, collapsible items
+     * Primitives: show value and type
+     * Null/undefined: show in gray
+
+   - Add search/filter box (find keys)
+   - Copy button (copy JSON to clipboard)
+
+2. JSON tree rendering:
+   - createTreeNode(key, value, depth):
+     * Recursively build tree structure
+     * Add indent for depth
+     * Expandable sections for objects/arrays
+     * Syntax highlighting (keys=blue, strings=green, numbers=orange)
+
+   - toggleNode(nodeElement):
+     * Expand/collapse on click
+     * Rotate icon (▶ to ▼)
+     * Show/hide children
+
+3. Display format example:
+   ```
+   view_data: Object {2}
+   ▼ tasks: Array[5]
+     ▼ 0: Object {7}
+         id: 1 (number)
+         title: "Fix bug" (string)
+       ▼ owner: Object {3}
+           id: 1 (number)
+           name: "Alice" (string)
+           email: "alice@..." (string)
+       ...
+   ```
+
+4. Update switchTab() to call renderStateInspector() when tab opened
+
+IMPORTANT:
+- Handle large datasets (virtualize if > 100 items)
+- Show data types clearly
+- Make JSON tree keyboard accessible
+- Add "No data" message if view_data empty
+- Use monospace font for values
+
+When complete:
+- Commit: "feat: implement State Inspector tab in dev panel"
+- Ask user to load Tasks page and inspect view_data in State tab
+```
+
+**Test Steps**: Load tasks page, open State Inspector, verify task data with relationships visible
+
+#### Feature 2.6: Dev Panel Tab 2 - Method Call Stack
+**Time**: 45min
+**Files to modify**:
+- `/frontend/public/js/devPanel.js`
+
+**Agent Prompt**:
+```
+You are implementing the Method Call Stack tab of the developer panel.
+
+CONTEXT:
+- Shows all Python method calls during request
+- Displays in chronological order with timing
+- Click method to see arguments and return value
+- Helps students trace execution flow through MVC layers
+
+TASK:
+Update frontend/public/js/devPanel.js:
+
+1. Implement renderMethodCalls():
+
+   - Read this.debugData.method_calls (array of call objects)
+   - Each call: {method, args, kwargs, return_value, duration}
+
+   - Render as timeline/list:
+     * Method name (e.g., "Task.get_all")
+     * Execution time (e.g., "2.3ms")
+     * Expand/collapse to show details
+
+   - Sort by timestamp (chronological order)
+
+2. Method call display:
+   - createMethodCallNode(call):
+     * Header: method name + duration badge
+     * Click to expand → show:
+       - Arguments (formatted)
+       - Keyword arguments (formatted)
+       - Return value (JSON tree format)
+     * Syntax highlighting
+
+   - Color-code by layer:
+     * Model methods: blue
+     * Controller methods: green
+     * Utility methods: gray
+
+3. Additional features:
+   - Search/filter methods by name
+   - "Show only Model calls" checkbox
+   - "Show only > 10ms" performance filter
+   - Total execution time at top
+
+4. Display format example:
+   ```
+   Method Call Stack (4 calls, 15.2ms total)
+
+   [Filter: All | Models Only | Slow (>10ms)]
+
+   ▼ User.get_all()                    3.2ms
+       Arguments: (none)
+       Return: Array[3] (users)
+
+   ▼ Task.get_all(include_relations=True)  12.0ms
+       Arguments: []
+       Kwargs: {include_relations: true}
+       Return: Array[5] (tasks with owners/assignees)
+   ```
+
+IMPORTANT:
+- Make method names clickable to expand
+- Use consistent formatting with State Inspector
+- Show timing prominently (performance learning)
+- Handle methods with no args/return gracefully
+- Add "No method calls tracked" if empty
+
+When complete:
+- Commit: "feat: implement Method Call Stack tab in dev panel"
+- Ask user to load Tasks page and verify method calls appear correctly
+```
+
+**Test Steps**: Create a task, verify create() method appears with arguments and return value
+
+#### Feature 2.7: Dev Panel Tab 3 - Database Inspector
+**Time**: 45min
+**Files to modify**:
+- `/frontend/public/js/devPanel.js`
+
+**Agent Prompt**:
+```
+You are implementing the Database Inspector tab of the developer panel.
+
+CONTEXT:
+- Shows all SQL queries executed during request
+- Displays query text, parameters, results, timing
+- Highlights slow queries
+- Teaches students about database operations and N+1 problems
+
+TASK:
+Update frontend/public/js/devPanel.js:
+
+1. Implement renderDatabaseQueries():
+
+   - Read this.debugData.db_queries (array of query objects)
+   - Each query: {query, params, result, duration}
+
+   - Render as list with syntax-highlighted SQL
+
+2. Query display:
+   - createQueryNode(query):
+     * SQL syntax highlighting (keywords in blue)
+     * Show parameters (if any)
+     * Show result summary (row count)
+     * Execution time badge
+     * Warning badge if > 50ms (slow query)
+
+   - Expand/collapse to show:
+     * Full SQL text (formatted, multi-line)
+     * Parameters (with values)
+     * Result metadata
+
+3. SQL syntax highlighting:
+   - Keywords: SELECT, FROM, WHERE, JOIN, etc. (blue, bold)
+   - Table names: (green)
+   - Values: (orange)
+   - Keep it simple (regex-based)
+
+4. Additional features:
+   - Total queries count at top
+   - Total query time
+   - Highlight duplicates (same query multiple times = N+1 problem)
+   - "Show only slow queries" filter
+
+5. Display format example:
+   ```
+   Database Queries (3 queries, 18.5ms total)
+
+   ⚠️ Warning: Duplicate queries detected (possible N+1 problem)
+
+   ▼ SELECT * FROM users                    3.2ms
+       Result: 3 rows
+
+   ▼ SELECT * FROM tasks                    5.1ms
+       Result: 5 rows
+
+   ▼ SELECT * FROM users WHERE id = ?      10.2ms [SLOW]
+       Parameters: [1]
+       Result: 1 row
+   ```
+
+IMPORTANT:
+- Detect N+1 problems (same query multiple times)
+- Make SQL readable (format with line breaks)
+- Show execution time prominently
+- Highlight slow queries (> 50ms)
+- Add "No queries executed" if empty
+
+When complete:
+- Commit: "feat: implement Database Inspector tab in dev panel"
+- Ask user to load Tasks page with include_relations=False to see N+1 problem
+```
+
+**Test Steps**: Load tasks, verify queries appear; test with/without include_relations to see N+1
+
+#### Feature 2.8: Dev Panel Tab 4 - Network Inspector
+**Time**: 30min
+**Files to modify**:
+- `/frontend/public/js/devPanel.js`
+
+**Agent Prompt**:
+```
+You are implementing the Network Inspector tab of the developer panel.
+
+CONTEXT:
+- Shows HTTP request details (method, URL, headers, status)
+- Shows HTTP response details (status, headers, content-type)
+- One request per page load (no AJAX yet)
+- Helps students understand request-response cycle
+
+TASK:
+Update frontend/public/js/devPanel.js:
+
+1. Implement renderNetworkInspector():
+
+   - Read this.debugData.request_info:
+     * method: GET/POST
+     * url: request URL
+     * headers: request headers (dict)
+     * status: response status code
+     * controller: which controller handled it
+
+   - Display request and response sections
+
+2. Request section:
+   - HTTP method and URL
+   - Request headers (collapsible)
+   - Request body (if POST)
+   - Timestamp
+
+3. Response section:
+   - Status code with color:
+     * 200-299: green
+     * 300-399: yellow
+     * 400-499: orange
+     * 500-599: red
+   - Response headers (collapsible)
+   - Content-type
+   - Response size
+   - Controller action that handled it
+
+4. Display format example:
+   ```
+   Request:
+   GET /tasks
+
+   ▼ Request Headers {5}
+       Host: localhost:5000
+       User-Agent: Mozilla/5.0...
+       Accept: text/html
+       ...
+
+   Response:
+   Status: 200 OK ✓
+   Controller: TaskController.index
+   Content-Type: text/html
+   Response Size: 12.3 KB
+   Duration: 45ms
+   ```
+
+IMPORTANT:
+- Make headers collapsible (often verbose)
+- Highlight important headers (Content-Type, Status)
+- Show which controller handled request
+- Add timing information
+- Handle missing data gracefully
+
+When complete:
+- Commit: "feat: implement Network Inspector tab in dev panel"
+- Ask user to verify request/response details appear correctly
+```
+
+**Test Steps**: Load any page, check Network tab shows correct method, URL, and status
+
+#### Feature 2.9: Dev Panel Tab 5 - Flow Diagram
+**Time**: 60min
+**Files to modify**:
+- `/frontend/public/js/devPanel.js`
+- `/frontend/public/css/devpanel.css`
+
+**Agent Prompt**:
+```
+You are implementing the Flow Diagram tab - visual MVC flow representation.
+
+CONTEXT:
+- Animated diagram showing request flow through MVC layers
+- Visual: Browser → Controller → Model → Database → Model → Controller → View → Browser
+- Highlights timing for each phase
+- Most visual/educational tab
+
+TASK:
+Update frontend/public/js/devPanel.js:
+
+1. Implement renderFlowDiagram():
+
+   - Create SVG diagram with boxes and arrows:
+     * Browser (user icon)
+     * Controller (gear icon)
+     * Model (database-like icon)
+     * Database (cylinder icon)
+     * View (eye icon)
+
+   - Draw arrows showing flow direction
+   - Animate flow when tab opened
+
+2. Flow phases (from debugData.timing):
+   - Request received (Browser → Controller)
+   - Controller processing (method calls)
+   - Model validation (if applicable)
+   - Database queries
+   - Model returns data
+   - View rendering
+   - Response sent
+
+3. Visual design:
+   - Boxes: rounded rectangles
+   - Arrows: animated dashed lines
+   - Timing: show duration on each arrow
+   - Current phase: highlighted in color
+   - Completed phases: green checkmark
+
+4. Animation:
+   - Auto-play on tab open
+   - Sequentially highlight each phase
+   - Pause between phases
+   - Loop option (checkbox)
+   - Speed control (1x, 2x, 5x)
+
+5. Display timing summary:
+   ```
+   Total Request: 45.2ms
+
+   1. Request → Controller: 0.1ms
+   2. Controller Processing: 2.3ms
+   3. Model Methods: 12.0ms
+   4. Database Queries: 18.5ms
+   5. View Rendering: 12.3ms
+   ```
+
+Update frontend/public/css/devpanel.css:
+- Add styles for SVG diagram
+- Animation keyframes
+- Phase highlighting colors
+
+IMPORTANT:
+- Keep diagram simple and clear
+- Use web-safe icons or simple shapes
+- Make timing numbers prominent
+- Animation should be smooth (CSS transitions)
+- Responsive to panel size
+
+When complete:
+- Commit: "feat: implement Flow Diagram tab in dev panel"
+- Ask user to view flow animation and verify timing matches method calls
+```
+
+**Test Steps**: Load tasks page, open Flow Diagram, verify animation shows correct sequence
+
+#### Feature 2.10: Inject view_data into __DEBUG__
+**Time**: 30min
+**Files to modify**:
+- `/backend/controllers/user_controller.py`
+- `/backend/controllers/task_controller.py`
+- `/backend/utils/request_tracker.py`
+
+**Agent Prompt**:
+```
+You are updating controllers to track view_data for the developer panel.
+
+CONTEXT:
+- Controllers currently render templates but don't track what data they pass
+- Need to capture data before rendering template
+- This data appears in State Inspector tab
+- Helper function: track_view_data()
+
+TASK:
+
+1. Update backend/utils/request_tracker.py:
+   - Modify track_view_data(data):
+     * Store data in g.tracking['view_data']
+     * Deep copy to avoid mutations
+     * Handle circular references gracefully
+
+2. Update backend/controllers/user_controller.py:
+   - Before each render_template() call:
+     * Call track_view_data(locals())
+     * This captures all template variables
+
+   Example:
+   ```python
+   @users.route('/')
+   def index():
+       users = User.get_all()
+       track_view_data({'users': users})
+       return render_template('users/index.html', users=users)
+   ```
+
+3. Update backend/controllers/task_controller.py:
+   - Same pattern for all routes
+   - Capture tasks, users, task variables
+
+4. Update after_request middleware:
+   - Ensure view_data is included in __DEBUG__ injection
+   - Format: window.__DEBUG__.view_data = {...}
+
+IMPORTANT:
+- Track data BEFORE rendering (in case template modifies it)
+- Don't track sensitive data (passwords)
+- Use copy.deepcopy() to avoid reference issues
+- Handle None gracefully
+
+When complete:
+- Commit: "feat: track view data in controllers for dev panel"
+- Ask user to load Tasks page and verify State Inspector shows tasks array
+```
+
+**Test Steps**: Load any page, open State Inspector, verify view_data populated
+
+---
+
+### Phase 3: Lesson Engine
+
+**Goal**: Tutorial mode with 8 structured lessons
+
+#### Feature 3.1: Lesson Data Structure & Loader
+**Time**: 45min
+**Files to create**:
+- `/lessons/lesson-1.json`
+- `/frontend/public/js/lessonEngine.js`
+
+**Agent Prompt**:
+```
+You are creating the lesson system for Tutorial Mode.
+
+CONTEXT:
+- 8 lessons total (PROJECT_BRIEF.md lines 139-188)
+- Each lesson: title, description, steps, checkpoints
+- Lessons loaded from JSON files
+- Progress tracked in localStorage
+
+TASK:
+
+1. Create lessons/lesson-1.json (Lesson 1: Understand MVC Pattern):
+   ```json
+   {
+     "id": 1,
+     "title": "Understand the MVC Pattern",
+     "description": "Learn what Model, View, and Controller mean",
+     "estimated_time": "5 min",
+     "objectives": [
+       "Understand the role of each MVC component",
+       "See how data flows through the layers"
+     ],
+     "steps": [
+       {
+         "id": "1-1",
+         "title": "What is a Model?",
+         "content": "The Model handles data and business logic...",
+         "hint": "Check the User.py file to see an example",
+         "checkpoint": null
+       },
+       {
+         "id": "1-2",
+         "title": "What is a View?",
+         "content": "The View displays data to users...",
+         "hint": "Look at templates/users/index.html",
+         "checkpoint": null
+       },
+       {
+         "id": "1-3",
+         "title": "What is a Controller?",
+         "content": "The Controller orchestrates...",
+         "hint": "See controllers/user_controller.py",
+         "checkpoint": {
+           "type": "quiz",
+           "question": "Which layer handles validation?",
+           "options": ["Model", "View", "Controller"],
+           "correct": "Model"
+         }
+       }
+     ]
+   }
+   ```
+
+2. Create frontend/public/js/lessonEngine.js:
+
+   - LessonEngine class:
+
+     loadLesson(lessonId):
+     - Fetch /lessons/lesson-{id}.json
+     - Store in this.currentLesson
+     - Render lesson UI
+
+     renderLesson():
+     - Display lesson title, description
+     - Show current step
+     - Progress indicator (e.g., "Step 2 of 5")
+
+     nextStep():
+     - Check checkpoint if present
+     - Move to next step
+     - Update progress
+     - Save to localStorage
+
+     checkCheckpoint(step):
+     - Validate quiz answers
+     - Validate code checkpoints
+     - Return true/false
+
+     saveProgress():
+     - localStorage.setItem('lessonProgress', JSON.stringify({...}))
+     - Track: current lesson, current step, completed lessons
+
+     loadProgress():
+     - Read from localStorage
+     - Resume where user left off
+
+3. Configure Flask to serve /lessons/ directory:
+   - Add static route for JSON files
+
+IMPORTANT:
+- Validate JSON structure on load
+- Handle missing lesson files gracefully
+- Don't allow skipping ahead (must complete checkpoints)
+- Save progress frequently
+
+When complete:
+- Commit: "feat: create lesson engine and Lesson 1 data"
+- Ask user to test loading Lesson 1 in console: new LessonEngine().loadLesson(1)
+```
+
+**Test Steps**: Load lesson 1 in browser console, verify JSON loads and renders
+
+#### Feature 3.2: Lesson Panel UI Component
+**Time**: 60min
+**Files to create**:
+- `/frontend/public/css/lessonPanel.css`
+- Update `/frontend/public/js/lessonEngine.js`
+- Update `/backend/templates/base.html`
+
+**Agent Prompt**:
+```
+You are creating the Lesson Panel UI - the sidebar for Tutorial Mode.
+
+CONTEXT:
+- Appears on left side of screen (or collapsible)
+- Shows current lesson, step, progress
+- Has navigation buttons (Next, Previous, Hint)
+- Displays checkpoints when applicable
+
+TASK:
+
+1. Create frontend/public/css/lessonPanel.css:
+   - Panel: fixed left sidebar (300px wide)
+   - Collapsible toggle button
+   - Lesson header: title, progress bar
+   - Step content area: scrollable
+   - Action buttons: Next, Previous, Hint
+   - Checkpoint UI: quiz questions, code validation
+   - Color scheme: educational (blues, greens)
+
+2. Update frontend/public/js/lessonEngine.js:
+
+   - Add UI rendering methods:
+
+     createPanel():
+     - Build panel HTML structure
+     - Insert into DOM
+     - Attach event listeners
+
+     renderCurrentStep():
+     - Display step title and content
+     - Show hint button (reveals hint on click)
+     - Render checkpoint if present
+
+     renderCheckpoint(checkpoint):
+     - Type: quiz → radio buttons
+     - Type: code → validation message
+     - Submit button
+
+     showHint(step):
+     - Reveal hint text
+     - Track hint usage
+
+     updateProgress():
+     - Progress bar: X% complete
+     - "Step N of M" indicator
+     - List of completed steps (checkmarks)
+
+3. Update backend/templates/base.html:
+   - Add <div id="lesson-panel"></div>
+   - Add <link> to lessonPanel.css
+   - Initialize: <script>window.lessonEngine = new LessonEngine();</script>
+   - Tutorial mode toggle (show/hide panel)
+
+4. Add mode selector:
+   - Toggle switch: Tutorial Mode / Exploration Mode
+   - Changes visibility of lesson panel
+   - Saves preference to localStorage
+
+IMPORTANT:
+- Panel should not block main app content
+- Make it collapsible for small screens
+- Keyboard navigation (arrow keys for next/prev)
+- Clear visual feedback for completed steps
+- Smooth animations (transitions)
+
+When complete:
+- Commit: "feat: create lesson panel UI component"
+- Ask user to enable Tutorial Mode and verify panel appears with Lesson 1
+```
+
+**Test Steps**: Toggle Tutorial Mode, verify lesson panel shows Lesson 1 with steps
+
+#### Feature 3.3: Create Lessons 2-4 (Content & JSON)
+**Time**: 60min
+**Files to create**:
+- `/lessons/lesson-2.json`
+- `/lessons/lesson-3.json`
+- `/lessons/lesson-4.json`
+
+**Agent Prompt**:
+```
+You are creating lesson content for Lessons 2, 3, and 4.
+
+CONTEXT:
+- Lesson 2: Understand Data Flow (10 min)
+- Lesson 3: Explore User Model (10 min)
+- Lesson 4: Explore Task Model (15 min)
+- See PROJECT_BRIEF.md lines 146-162 for objectives
+
+TASK:
+
+1. Create lessons/lesson-2.json:
+   - Title: "Understand Data Flow"
+   - 4-5 steps walking through a request:
+     * Step 1: User clicks "View Tasks"
+     * Step 2: Browser sends GET request
+     * Step 3: Controller receives request
+     * Step 4: Controller calls Model
+     * Step 5: Model queries database
+     * Step 6: View renders result
+   - Checkpoint: "Which layer queries the database?"
+   - Reference dev panel tabs in hints
+
+2. Create lessons/lesson-3.json:
+   - Title: "Explore the User Model"
+   - Steps:
+     * Read User model code
+     * Understanding validation
+     * Create a new user (hands-on)
+     * Watch method calls in dev panel
+   - Checkpoint: "Add email validation for .edu domains"
+   - Provide code template for checkpoint
+
+3. Create lessons/lesson-4.json:
+   - Title: "Explore the Task Model"
+   - Steps:
+     * Understanding relationships (owner, assignee)
+     * See foreign keys in database
+     * Create task with relationships
+     * Observe JOINs in SQL queries
+     * Learn about N+1 problem
+   - Checkpoint: "Update task status to 'done'"
+   - Verify via dev panel Database tab
+
+IMPORTANT:
+- Make lessons progressive (build on previous)
+- Include interactive elements (not just reading)
+- Reference specific files and line numbers
+- Use dev panel as primary learning tool
+- Write clear, friendly language (not too technical)
+
+When complete:
+- Commit: "feat: create lessons 2, 3, and 4 content"
+- Ask user to review lesson content for clarity
+```
+
+**Test Steps**: Load lessons 2-4, verify content is clear and checkpoints work
+
+#### Feature 3.4: Code Checkpoint Validator
+**Time**: 60min
+**Files to create**:
+- `/backend/utils/checkpoint_validator.py`
+- `/backend/controllers/lesson_controller.py`
+- Update `/frontend/public/js/lessonEngine.js`
+
+**Agent Prompt**:
+```
+You are implementing code checkpoint validation for lessons.
+
+CONTEXT:
+- Some lessons require students to write code
+- Example: "Add validation rule to User model"
+- Backend validates the code actually works
+- Prevents students from skipping ahead without learning
+
+TASK:
+
+1. Create backend/utils/checkpoint_validator.py:
+
+   - validate_checkpoint(lesson_id, checkpoint_id, submitted_code):
+     * Load expected checkpoint requirements
+     * Run submitted code safely (sandboxed)
+     * Check if requirements met
+     * Return: {success: bool, message: str}
+
+   - Validators for specific checkpoints:
+     * lesson_3_checkpoint: Verify email validation added
+     * lesson_6_checkpoint: Verify status filter works
+     * lesson_7_checkpoint: Verify priority update works
+     * lesson_8_checkpoint: Verify comments feature works
+
+   - Safety measures:
+     * Don't execute arbitrary code (whitelist approaches)
+     * Run in isolated context
+     * Timeout protection (5 second max)
+
+2. Create backend/controllers/lesson_controller.py:
+
+   - POST /lessons/<id>/checkpoint:
+     * Receive submitted code
+     * Call validate_checkpoint()
+     * Return validation result JSON
+     * Track attempt in session
+
+   - GET /lessons/<id>/progress:
+     * Return user's progress for lesson
+     * Completed steps, checkpoints passed
+
+3. Update frontend/public/js/lessonEngine.js:
+
+   - submitCheckpoint(code):
+     * POST code to /lessons/<id>/checkpoint
+     * Show validation result
+     * If success: unlock next step
+     * If fail: show helpful error message
+
+   - renderCodeCheckpoint():
+     * Show code editor (textarea with syntax highlighting)
+     * Submit button
+     * Validation feedback area
+
+IMPORTANT:
+- NEVER execute user code directly (security risk)
+- Use static analysis where possible (regex, AST parsing)
+- For code execution: use restricted environment
+- Provide helpful feedback on failures
+- Consider using exec() with limited globals (carefully)
+
+When complete:
+- Commit: "feat: implement code checkpoint validation"
+- Ask user to test Lesson 3 checkpoint submission
+```
+
+**Test Steps**: Complete Lesson 3, submit code for checkpoint, verify validation works
+
+#### Feature 3.5: Create Lessons 5-8 (Content & JSON)
+**Time**: 90min
+**Files to create**:
+- `/lessons/lesson-5.json`
+- `/lessons/lesson-6.json`
+- `/lessons/lesson-7.json`
+- `/lessons/lesson-8.json`
+
+**Agent Prompt**:
+```
+You are creating content for Lessons 5-8 (Controllers, Features, Advanced).
+
+CONTEXT:
+- Lesson 5: Controllers (12 min) - understanding orchestration
+- Lesson 6: Status Filter (20 min) - first coding exercise
+- Lesson 7: Priority Update (25 min) - second coding exercise
+- Lesson 8: Comments Feature (45+ min) - advanced multi-part
+- See PROJECT_BRIEF.md lines 163-187
+
+TASK:
+
+1. Create lessons/lesson-5.json:
+   - Title: "Understand Controllers"
+   - Steps:
+     * What controllers do (orchestration)
+     * Trace TaskController.index request
+     * See how controller calls multiple models
+     * Understand thin controller principle
+   - Checkpoint: Quiz on controller responsibilities
+
+2. Create lessons/lesson-6.json:
+   - Title: "Create Task Status Filter"
+   - Steps:
+     * Part 1: Add byStatus() method to Task model
+     * Part 2: Add /tasks?status=done route to controller
+     * Part 3: Add filter buttons to view
+     * Part 4: Test in browser
+   - Checkpoint: Validate filter works, dev panel shows correct query
+   - Provide code templates for each part
+
+3. Create lessons/lesson-7.json:
+   - Title: "Create Priority Update Feature"
+   - Steps:
+     * Part 1: Add updatePriority() to Task model
+     * Part 2: Add POST /tasks/<id>/priority route
+     * Part 3: Add priority dropdown in task view
+     * Part 4: Handle validation errors
+   - Checkpoint: Update priority, verify in database
+   - Similar to Lesson 6 but different feature
+
+4. Create lessons/lesson-8.json:
+   - Title: "Build Comments Feature from Scratch"
+   - Steps:
+     * Part A: Design Comment model (table schema)
+     * Part B: Implement Comment CRUD methods
+     * Part C: Create CommentController routes
+     * Part D: Add comments section to task view
+     * Part E: Handle relationships (comment.user, task.comments)
+   - Multiple checkpoints (one per part)
+   - Final checkpoint: Create comment, see in database
+   - This is the capstone lesson
+
+IMPORTANT:
+- Lessons 6-8 are hands-on (student writes code)
+- Provide clear instructions and templates
+- Break down into small steps
+- Reference dev panel for verification
+- Lesson 8 should feel like a real feature build
+- Make success criteria crystal clear
+
+When complete:
+- Commit: "feat: create lessons 5-8 content"
+- Ask user to review Lesson 8 (most complex) for clarity
+```
+
+**Test Steps**: Review all lessons for completeness and clarity
+
+#### Feature 3.6: Lesson Progress Tracking & Persistence
+**Time**: 30min
+**Files to modify**:
+- `/frontend/public/js/lessonEngine.js`
+
+**Agent Prompt**:
+```
+You are implementing comprehensive lesson progress tracking.
+
+CONTEXT:
+- Track which lessons completed
+- Track current step within lesson
+- Track checkpoint attempts and success
+- Persist to localStorage (client-side for now)
+
+TASK:
+Update frontend/public/js/lessonEngine.js:
+
+1. Progress data structure:
+   ```javascript
+   {
+     currentLesson: 1,
+     currentStep: "1-2",
+     completedLessons: [1, 2],
+     lessonProgress: {
+       1: {completed: true, score: 100, timeSpent: 300},
+       2: {completed: false, score: 50, currentStep: "2-3"}
+     },
+     checkpointAttempts: {
+       "3-checkpoint": {attempts: 2, passed: true}
+     }
+   }
+   ```
+
+2. Methods to implement:
+
+   - markStepComplete(lessonId, stepId):
+     * Update progress
+     * Save to localStorage
+     * Unlock next step
+
+   - markLessonComplete(lessonId):
+     * Set completed: true
+     * Calculate score (based on hints used, attempts)
+     * Unlock next lesson
+
+   - canAccessLesson(lessonId):
+     * Check if previous lesson completed
+     * Return true/false
+
+   - resetProgress():
+     * Clear localStorage
+     * Start from Lesson 1
+
+   - exportProgress():
+     * Generate JSON of progress
+     * Allow download for backup
+
+3. UI updates:
+   - Show completed lessons with checkmarks
+   - Disable locked lessons
+   - Display "Continue" button for in-progress lesson
+   - Show progress percentage overall
+
+4. Enforcement:
+   - Don't allow skipping lessons
+   - Don't allow skipping steps within lesson
+   - Must pass checkpoints to proceed
+
+IMPORTANT:
+- Save progress frequently (after every step)
+- Handle localStorage quota exceeded
+- Provide "Reset Progress" option (with confirmation)
+- Consider future: sync to backend
+
+When complete:
+- Commit: "feat: implement lesson progress tracking and persistence"
+- Ask user to complete a few steps, reload page, verify progress restored
+```
+
+**Test Steps**: Complete steps, reload page, verify progress preserved
+
+---
+
+### Phase 4: Mode Toggle & Polish
+
+**Goal**: Both Tutorial and Exploration modes fully working
+
+#### Feature 4.1: Mode Switcher Component
+**Time**: 30min
+**Files to create**:
+- `/frontend/public/js/modeManager.js`
+- `/frontend/public/css/modeManager.css`
+- Update `/backend/templates/base.html`
+
+**Agent Prompt**:
+```
+You are creating the Tutorial/Exploration mode switcher.
+
+CONTEXT:
+- Two modes: Tutorial (guided) and Exploration (free)
+- Tutorial: lesson panel visible, features locked until taught
+- Exploration: full access, dev panel primary tool
+- Toggle in UI header
+
+TASK:
+
+1. Create frontend/public/js/modeManager.js:
+
+   - ModeManager class:
+
+     init():
+     - Load mode preference from localStorage
+     - Apply mode (show/hide lesson panel)
+     - Register event listeners
+
+     setMode(mode):
+     - 'tutorial' or 'exploration'
+     - Save to localStorage
+     - Update UI visibility
+     - Emit mode change event
+
+     getCurrentMode():
+     - Return current mode
+
+     isTutorialMode():
+     - Return boolean
+
+     isExplorationMode():
+     - Return boolean
+
+2. Create frontend/public/css/modeManager.css:
+   - Toggle switch styling (Tutorial ↔ Exploration)
+   - Smooth transition animations
+   - Active mode highlighted
+
+3. Update backend/templates/base.html:
+   - Add mode toggle in header:
+     ```html
+     <div class="mode-toggle">
+       <label>
+         <input type="checkbox" id="mode-switch">
+         <span>Tutorial Mode</span>
+       </label>
+     </div>
+     ```
+   - Initialize: <script>window.modeManager = new ModeManager();</script>
+
+4. Mode behaviors:
+   - Tutorial mode:
+     * Show lesson panel
+     * Hide dev panel toggle (force always visible)
+     * Lock features based on lesson progress
+
+   - Exploration mode:
+     * Hide lesson panel
+     * Show dev panel toggle
+     * Unlock all features
+
+IMPORTANT:
+- Make toggle prominent and clear
+- Show current mode state clearly
+- Smooth transitions (no jarring changes)
+- Preserve mode preference across sessions
+
+When complete:
+- Commit: "feat: create mode switcher component"
+- Ask user to toggle between modes and verify UI changes correctly
+```
+
+**Test Steps**: Toggle modes, verify lesson panel and dev panel visibility changes
+
+#### Feature 4.2: Feature Locking in Tutorial Mode
+**Time**: 45min
+**Files to modify**:
+- `/frontend/public/js/modeManager.js`
+- `/backend/templates/users/index.html`
+- `/backend/templates/tasks/index.html`
+
+**Agent Prompt**:
+```
+You are implementing feature locking based on lesson progress.
+
+CONTEXT:
+- In Tutorial Mode, features are locked until relevant lesson completed
+- Example: Can't filter tasks until Lesson 6 complete
+- Provides structured learning path
+- In Exploration Mode: everything unlocked
+
+TASK:
+
+1. Update frontend/public/js/modeManager.js:
+
+   - Feature lock configuration:
+     ```javascript
+     featureLocks = {
+       'task-status-filter': {requiredLesson: 6},
+       'task-priority-update': {requiredLesson: 7},
+       'comments': {requiredLesson: 8}
+     }
+     ```
+
+   - isFeatureUnlocked(featureName):
+     * If exploration mode: return true
+     * If tutorial mode: check lesson progress
+     * Return true if required lesson completed
+
+   - lockFeature(element):
+     * Add 'locked' class
+     * Add tooltip: "Complete Lesson X to unlock"
+     * Disable click events
+
+   - unlockFeature(element):
+     * Remove 'locked' class
+     * Enable click events
+
+2. Update backend/templates/tasks/index.html:
+   - Add data-feature attributes:
+     ```html
+     <div class="status-filter" data-feature="task-status-filter">
+       <!-- filter buttons -->
+     </div>
+     ```
+
+   - On page load: check locks and apply
+
+3. Update backend/templates/users/index.html:
+   - Similar pattern for any locked features
+
+4. Visual locked state:
+   - Grayed out appearance
+   - Lock icon overlay
+   - Tooltip on hover
+   - Click shows "Unlock in Lesson X" message
+
+IMPORTANT:
+- Don't hide features (just lock them)
+- Show clear path to unlock
+- Make locked state obvious
+- Don't frustrate users (clear messaging)
+
+When complete:
+- Commit: "feat: implement feature locking in tutorial mode"
+- Ask user to test Tutorial Mode with fresh progress (features should be locked)
+```
+
+**Test Steps**: Start Tutorial Mode from beginning, verify features locked; complete lessons, verify unlock
+
+#### Feature 4.3: Dev Panel Integration with Lessons
+**Time**: 30min
+**Files to modify**:
+- `/frontend/public/js/devPanel.js`
+- `/frontend/public/js/lessonEngine.js`
+
+**Agent Prompt**:
+```
+You are integrating the dev panel with lessons for guided learning.
+
+CONTEXT:
+- In Tutorial Mode, dev panel should highlight relevant info for current lesson
+- Example: Lesson 4 (Database) → auto-open Database Inspector tab
+- Helps students focus on what matters
+
+TASK:
+
+1. Update frontend/public/js/devPanel.js:
+
+   - highlightTab(tabName):
+     * Add pulsing border to tab button
+     * Auto-switch to tab
+     * Add "Lesson recommends this tab" badge
+
+   - clearHighlights():
+     * Remove all lesson-related highlights
+
+   - listenToLessonChanges():
+     * Subscribe to lesson step changes
+     * Update highlights based on current lesson
+
+2. Update frontend/public/js/lessonEngine.js:
+
+   - Add devPanelHint to lesson steps:
+     ```json
+     {
+       "id": "2-3",
+       "devPanelHint": {
+         "tab": "methodCalls",
+         "message": "Watch the Method Call Stack as you create a user"
+       }
+     }
+     ```
+
+   - When step changes:
+     * Emit event with devPanelHint
+     * DevPanel listens and responds
+
+3. Lesson step integration:
+   - Lesson 2: Highlight Flow Diagram
+   - Lesson 3: Highlight Method Calls (User.create)
+   - Lesson 4: Highlight Database Inspector (JOINs)
+   - Lesson 6-8: Highlight relevant tabs for feature work
+
+IMPORTANT:
+- Don't force dev panel open (suggest)
+- Make highlights subtle (not annoying)
+- Allow students to ignore hints
+- Clear highlights when leaving Tutorial Mode
+
+When complete:
+- Commit: "feat: integrate dev panel with lesson hints"
+- Ask user to go through Lesson 2, verify Flow Diagram tab highlighted
+```
+
+**Test Steps**: Start Lesson 2, verify dev panel suggests Flow Diagram tab
+
+#### Feature 4.4: Polish UI/UX and Accessibility
+**Time**: 45min
+**Files to modify**:
+- `/frontend/public/css/devpanel.css`
+- `/frontend/public/css/lessonPanel.css`
+- `/backend/templates/base.html`
+
+**Agent Prompt**:
+```
+You are polishing the UI/UX and adding accessibility features.
+
+CONTEXT:
+- App should be usable and look professional
+- Accessibility: keyboard navigation, screen readers
+- Responsive: work on different screen sizes
+- Consistent design language
+
+TASK:
+
+1. Update frontend/public/css/devpanel.css:
+   - Improve contrast ratios (WCAG AA compliance)
+   - Add focus indicators for keyboard navigation
+   - Smooth transitions and animations
+   - Better typography (readable font sizes)
+   - Consistent spacing (use CSS variables)
+
+2. Update frontend/public/css/lessonPanel.css:
+   - Match dev panel styling
+   - Improve readability
+   - Better button states (hover, active, disabled)
+   - Progress bar animation
+
+3. Update backend/templates/base.html:
+   - Add proper ARIA labels:
+     * role="navigation" for nav
+     * aria-label for buttons
+     * aria-live for dynamic content
+   - Semantic HTML (proper headings hierarchy)
+   - Skip-to-content link for screen readers
+   - Meta tags (viewport, description)
+
+4. Keyboard navigation:
+   - Tab key: navigate all interactive elements
+   - Escape: close panels
+   - Arrow keys: navigate lesson steps
+   - Space/Enter: activate buttons
+   - Focus visible on all elements
+
+5. Responsive design:
+   - Mobile: stack panels vertically
+   - Tablet: collapsible panels
+   - Desktop: side-by-side layout
+   - Use CSS media queries
+
+IMPORTANT:
+- Test with keyboard only (no mouse)
+- Check color contrast (use tool)
+- Validate HTML (no errors)
+- Test with screen reader if possible
+- Don't sacrifice usability for aesthetics
+
+When complete:
+- Commit: "feat: polish UI/UX and add accessibility features"
+- Ask user to test keyboard navigation and verify all features accessible
+```
+
+**Test Steps**: Navigate entire app with keyboard only, verify all features accessible
+
+#### Feature 4.5: Error Handling & User Feedback
+**Time**: 30min
+**Files to modify**:
+- `/backend/app.py`
+- `/frontend/public/js/devPanel.js`
+- `/frontend/public/js/lessonEngine.js`
+
+**Agent Prompt**:
+```
+You are improving error handling and user feedback throughout the app.
+
+CONTEXT:
+- Errors should be helpful, not cryptic
+- Show user-friendly messages
+- Log technical details for debugging
+- Graceful degradation when things fail
+
+TASK:
+
+1. Update backend/app.py:
+
+   - Improve error handlers:
+     * 404: Helpful message + suggestion
+     * 500: User-friendly error + log technical details
+     * Database errors: Specific messages
+
+   - Add error logging:
+     * Log to file: errors.log
+     * Include request context
+     * Stack traces for debugging
+
+   - Validation error format:
+     * Consistent JSON structure
+     * Field-level errors
+     * Human-readable messages
+
+2. Update frontend/public/js/devPanel.js:
+
+   - Handle missing __DEBUG__:
+     * Show "No debug data" message
+     * Don't crash
+     * Suggest enabling debug mode
+
+   - Handle malformed data:
+     * Try/catch around JSON parsing
+     * Show error in panel
+     * Preserve user's work
+
+3. Update frontend/public/js/lessonEngine.js:
+
+   - Handle missing lessons:
+     * Show "Lesson not found" message
+     * Link to available lessons
+
+   - Handle checkpoint failures:
+     * Clear error messages
+     * Suggestions for fix
+     * Don't lock user out
+
+   - Network error handling:
+     * Retry logic (3 attempts)
+     * Offline mode indicator
+     * Save progress locally
+
+4. User feedback improvements:
+   - Loading states (spinners)
+   - Success messages (green toast)
+   - Error messages (red toast)
+   - Progress indicators
+   - Confirmation dialogs for destructive actions
+
+IMPORTANT:
+- Never show stack traces to end users
+- Log everything for debugging
+- Make error messages actionable
+- Preserve user's work on errors
+- Test all error paths
+
+When complete:
+- Commit: "feat: improve error handling and user feedback"
+- Ask user to test error scenarios (e.g., invalid form, missing lesson)
+```
+
+**Test Steps**: Submit invalid form, access non-existent lesson, verify helpful errors shown
+
+---
+
+### Phase 5: Deployment & Documentation
+
+**Goal**: Ready to share with others
+
+#### Feature 5.1: Docker Configuration
+**Time**: 45min
+**Files to create**:
+- `/Dockerfile`
+- `/docker-compose.yml`
+- `/.dockerignore`
+
+**Agent Prompt**:
+```
+You are creating Docker configuration for easy deployment.
+
+CONTEXT:
+- One-command setup: docker-compose up
+- Include Python backend, serve frontend static files
+- Initialize database on first run
+- Development and production modes
+
+TASK:
+
+1. Create Dockerfile:
+   ```dockerfile
+   FROM python:3.11-slim
+
+   WORKDIR /app
+
+   # Install Python dependencies
+   COPY requirements.txt .
+   RUN pip install --no-cache-dir -r requirements.txt
+
+   # Copy application code
+   COPY backend/ ./backend/
+   COPY frontend/ ./frontend/
+   COPY lessons/ ./lessons/
+
+   # Expose port
+   EXPOSE 5000
+
+   # Run app
+   CMD ["python", "backend/app.py"]
+   ```
+
+2. Create docker-compose.yml:
+   ```yaml
+   version: '3.8'
+
+   services:
+     app:
+       build: .
+       ports:
+         - "5000:5000"
+       volumes:
+         - ./backend:/app/backend
+         - ./frontend:/app/frontend
+         - ./lessons:/app/lessons
+         - db-data:/app/data
+       environment:
+         - FLASK_ENV=development
+         - DATABASE_PATH=/app/data/educational_mvc.db
+       command: python backend/app.py
+
+   volumes:
+     db-data:
+   ```
+
+3. Create .dockerignore:
+   - Exclude: __pycache__, *.pyc, .env, node_modules/, *.db
+   - Include: backend/, frontend/, lessons/, requirements.txt
+
+4. Database initialization in Docker:
+   - Check if DB exists
+   - If not: create schema, seed data
+   - Mount volume for persistence
+
+IMPORTANT:
+- Keep image size small
+- Use multi-stage build if needed
+- Volume mount for development (hot reload)
+- Separate production config
+- Document required environment variables
+
+When complete:
+- Commit: "feat: add Docker configuration"
+- Ask user to test: docker-compose up and access http://localhost:5000
+```
+
+**Test Steps**: Run docker-compose up, verify app starts and database initializes
+
+#### Feature 5.2: NPM Scripts and Setup
+**Time**: 30min
+**Files to modify**:
+- `/package.json`
+
+**Agent Prompt**:
+```
+You are creating comprehensive npm scripts for easy setup and development.
+
+CONTEXT:
+- Users should run: npm install → npm start
+- Scripts for common tasks (setup, dev, test, clean)
+- Cross-platform (Windows, Mac, Linux)
+
+TASK:
+Update package.json:
+
+1. Add scripts:
+   ```json
+   {
+     "scripts": {
+       "setup": "pip install -r requirements.txt && python backend/database/seed.py",
+       "start": "python backend/app.py",
+       "dev": "FLASK_ENV=development python backend/app.py",
+       "clean": "find . -type f -name '*.pyc' -delete && rm -f *.db",
+       "docker:build": "docker-compose build",
+       "docker:up": "docker-compose up",
+       "docker:down": "docker-compose down",
+       "test": "echo 'No tests yet'"
+     }
+   }
+   ```
+
+2. Add package metadata:
+   - name: "educational-mvc-app"
+   - version: "1.0.0"
+   - description: "Interactive MVC learning app"
+   - author: Your info
+   - license: "MIT"
+
+3. Add helpful npm install message:
+   - postinstall script: show setup instructions
+   - "Run 'npm run setup' to initialize database"
+
+4. Cross-platform compatibility:
+   - Use cross-env for environment variables (Windows)
+   - Use rimraf for file deletion (cross-platform)
+   - Add as devDependencies
+
+IMPORTANT:
+- Test on multiple platforms
+- Make scripts intuitive
+- Document each script in README
+- Handle errors gracefully
+
+When complete:
+- Commit: "feat: add comprehensive npm scripts"
+- Ask user to test: npm run setup && npm start
+```
+
+**Test Steps**: Run npm install, npm run setup, npm start - verify works
+
+#### Feature 5.3: README.md with Setup Instructions
+**Time**: 45min
+**Files to modify**:
+- `/README.md`
+
+**Agent Prompt**:
+```
+You are writing comprehensive README.md documentation.
+
+CONTEXT:
+- First thing users see
+- Should enable anyone to set up and run the app
+- Explain what it is, why it exists, how to use it
+- Link to other docs
+
+TASK:
+Update README.md with sections:
+
+1. Header:
+   - Project title
+   - Badges (Python version, license)
+   - One-line description
+   - Screenshot (placeholder for now)
+
+2. Overview:
+   - What is this app?
+   - Who is it for?
+   - What will you learn?
+   - Link to PROJECT_BRIEF.md
+
+3. Features:
+   - MVC architecture (transparent)
+   - Developer panel (5 tabs)
+   - Tutorial mode (8 lessons)
+   - Exploration mode
+   - Self-documenting code
+
+4. Quick Start:
+   ```bash
+   # Option 1: Docker (recommended)
+   docker-compose up
+
+   # Option 2: Local setup
+   npm install
+   npm run setup
+   npm start
+
+   # Visit http://localhost:5000
+   ```
+
+5. Detailed Setup:
+   - Prerequisites (Python 3.11+, Node.js optional)
+   - Installation steps
+   - Database initialization
+   - Running in development mode
+   - Troubleshooting common issues
+
+6. Usage:
+   - Tutorial Mode: Start Lesson 1
+   - Exploration Mode: Create users and tasks
+   - Developer Panel: Inspect MVC flow
+   - Lessons: Overview of 8 lessons
+
+7. Project Structure:
+   - Directory tree
+   - Explanation of each folder
+   - Key files
+
+8. Learning Path:
+   - Recommended order
+   - Link to LESSONS.md (next feature)
+
+9. Documentation:
+   - Link to ARCHITECTURE.md (next feature)
+   - Link to LESSONS.md
+   - Link to PROJECT_BRIEF.md
+
+10. Contributing:
+    - How to contribute
+    - Code style
+    - Submitting issues
+
+11. License: MIT
+
+IMPORTANT:
+- Clear, concise language
+- Code blocks with syntax highlighting
+- Links to all relevant docs
+- Keep it scannable (headings, lists)
+- Include troubleshooting section
+
+When complete:
+- Commit: "docs: create comprehensive README"
+- Ask user to review README for clarity
+```
+
+**Test Steps**: Review README, verify all links work, instructions are clear
+
+#### Feature 5.4: ARCHITECTURE.md Documentation
+**Time**: 45min
+**Files to create**:
+- `/docs/ARCHITECTURE.md`
+
+**Agent Prompt**:
+```
+You are documenting the technical architecture of the app.
+
+CONTEXT:
+- For developers who want to understand how it works
+- Explain design decisions
+- Reference PROJECT_BRIEF.md philosophy
+- Deep technical detail
+
+TASK:
+Create docs/ARCHITECTURE.md with sections:
+
+1. Overview:
+   - Philosophy: "No magic. Every line of code is inspectable."
+   - Goals: Teaching MVC, transparency, hands-on learning
+
+2. Tech Stack:
+   - Backend: Python + Flask (why?)
+   - Frontend: Vanilla JavaScript (why?)
+   - Database: SQLite (why?)
+   - Templating: Jinja2 (why?)
+
+3. MVC Architecture:
+   - Model layer (responsibilities, examples)
+   - View layer (responsibilities, examples)
+   - Controller layer (responsibilities, examples)
+   - Diagram of data flow
+
+4. Developer Panel Architecture:
+   - Request tracking (middleware)
+   - Method logging (decorators)
+   - Database query logging
+   - __DEBUG__ object injection
+   - Frontend rendering
+
+5. Lesson Engine Architecture:
+   - JSON-based lessons
+   - Progress tracking (localStorage)
+   - Checkpoint validation
+   - Mode system (Tutorial vs Exploration)
+
+6. Database Schema:
+   - Users table
+   - Tasks table
+   - Relationships (foreign keys)
+   - Why this structure?
+
+7. Request-Response Flow:
+   - Step-by-step walkthrough
+   - Example: GET /tasks
+   - Trace through all layers
+   - Show timing and logging
+
+8. Code Organization:
+   - File structure
+   - Naming conventions
+   - Documentation style
+   - Testing approach
+
+9. Design Decisions:
+   - Why Flask? (vs Django, FastAPI)
+   - Why vanilla JS? (vs React, Vue)
+   - Why SQLite? (vs PostgreSQL)
+   - Why client-side lesson progress? (vs backend)
+
+10. Future Enhancements:
+    - Backend lesson progress sync
+    - Automated tests
+    - More advanced lessons
+    - User authentication
+
+IMPORTANT:
+- Technical but readable
+- Include diagrams (ASCII art is fine)
+- Explain *why* not just *what*
+- Reference specific files and line numbers
+- Link to code examples
+
+When complete:
+- Commit: "docs: create architecture documentation"
+- Ask user to review for technical accuracy
+```
+
+**Test Steps**: Review ARCHITECTURE.md for completeness and clarity
+
+#### Feature 5.5: LESSONS.md Guide
+**Time**: 30min
+**Files to create**:
+- `/docs/LESSONS.md`
+
+**Agent Prompt**:
+```
+You are creating a lesson guide for instructors and learners.
+
+CONTEXT:
+- Overview of all 8 lessons
+- Learning objectives
+- What students will build
+- Tips for instructors
+
+TASK:
+Create docs/LESSONS.md with sections:
+
+1. Introduction:
+   - How the lesson system works
+   - Tutorial vs Exploration Mode
+   - Estimated total time (2-3 hours)
+
+2. Lesson Overview Table:
+   | Lesson | Title | Time | Objectives | Checkpoint |
+   |--------|-------|------|------------|------------|
+   | 1 | Understand MVC | 5min | Learn MVC roles | Quiz |
+   | ... | ... | ... | ... | ... |
+
+3. Detailed Lesson Breakdowns:
+
+   For each lesson (1-8):
+   - Title and objectives
+   - What you'll learn
+   - What you'll build (if coding lesson)
+   - Key concepts covered
+   - Prerequisites
+   - Checkpoint description
+   - Tips for success
+   - Common mistakes to avoid
+
+4. Learning Path:
+   - Linear progression (can't skip)
+   - Why this order?
+   - Each lesson builds on previous
+
+5. Tips for Learners:
+   - Use developer panel actively
+   - Don't rush checkpoints
+   - Experiment in Exploration Mode
+   - Read code comments
+   - Ask questions
+
+6. Tips for Instructors:
+   - How to guide students
+   - What to emphasize
+   - Common questions
+   - Extension activities
+
+7. Troubleshooting:
+   - Checkpoint not passing
+   - Lesson not loading
+   - Progress lost
+   - Reset progress
+
+IMPORTANT:
+- Clear learning outcomes for each lesson
+- Set realistic time expectations
+- Encourage active learning
+- Make it encouraging (not intimidating)
+
+When complete:
+- Commit: "docs: create lesson guide"
+- Ask user to review for educational clarity
+```
+
+**Test Steps**: Review LESSONS.md, verify lesson descriptions match JSON content
+
+#### Feature 5.6: Final Testing & Bug Fixes
+**Time**: 60min
+**Files**: Various (as needed)
+
+**Agent Prompt**:
+```
+You are performing final comprehensive testing and bug fixes.
+
+CONTEXT:
+- End-to-end testing of all features
+- Fix any bugs found
+- Ensure everything works smoothly
+- Prepare for release
+
+TASK:
+
+1. Test Tutorial Mode:
+   - Start from Lesson 1
+   - Complete all 8 lessons
+   - Verify checkpoints work
+   - Check progress tracking
+   - Test locked features
+   - Verify dev panel integration
+
+2. Test Exploration Mode:
+   - Create users
+   - Create tasks with relationships
+   - Update and delete
+   - Verify dev panel shows correct data
+   - All 5 dev panel tabs
+
+3. Test Developer Panel:
+   - State Inspector: verify view data
+   - Method Calls: verify all methods logged
+   - Database Inspector: verify queries shown
+   - Network Inspector: verify request details
+   - Flow Diagram: verify animation works
+
+4. Test Edge Cases:
+   - Invalid form inputs
+   - Missing required fields
+   - Foreign key constraints
+   - Null assignee handling
+   - Large datasets
+
+5. Test Deployment:
+   - Docker setup
+   - Local npm setup
+   - Database initialization
+   - Fresh install experience
+
+6. Fix Bugs:
+   - Document each bug found
+   - Fix immediately
+   - Test fix
+   - Commit with "fix: [description]"
+
+7. Performance Check:
+   - Page load times
+   - Dev panel rendering
+   - Database query optimization
+   - No N+1 queries (unless intentional for teaching)
+
+8. Browser Compatibility:
+   - Chrome
+   - Firefox
+   - Safari
+   - Edge
+
+IMPORTANT:
+- Test like a new user (fresh perspective)
+- Don't skip edge cases
+- Fix bugs before moving on
+- Document workarounds if needed
+- Ensure seed data is realistic
+
+When complete:
+- Commit: "test: comprehensive end-to-end testing complete"
+- Ask user to do final acceptance testing
+```
+
+**Test Steps**: Follow the test plan above, user performs final acceptance testing
 
 ---
 
@@ -789,4 +2915,3 @@ After completing all features, the app should:
 **Plan Created**: 2026-01-03
 **Ready for Implementation**: Yes
 **Agent-Friendly**: Yes (detailed prompts included)
-**Location**: /home/neil/projects/educational-mvc/IMPLEMENTATION_PLAN.md
