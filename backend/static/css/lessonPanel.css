@@ -92,6 +92,53 @@ body.lesson-panel-visible main {
     border-bottom: 2px solid rgba(255, 255, 255, 0.2);
 }
 
+/* Lesson selector wrapper */
+.lesson-selector-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 15px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lesson-selector-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.8);
+    white-space: nowrap;
+    margin: 0;
+}
+
+.lesson-selector {
+    flex: 1;
+    padding: 6px 8px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: white;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.lesson-selector:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.lesson-selector:focus {
+    outline: none;
+    border-color: #4ade80;
+    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.lesson-selector option {
+    background-color: #34495e;
+    color: white;
+}
+
 .lesson-panel-title {
     margin: 0 0 10px 0;
     font-size: 18px;

@@ -184,6 +184,16 @@ class LessonEngine {
         if (this.currentStepIndex >= this.currentLesson.steps.length - 1) {
             console.log('✅ You have completed all steps in this lesson!');
             this.markLessonComplete();
+
+            // Auto-load next lesson if available
+            const nextLessonId = this.currentLesson.id + 1;
+            if (nextLessonId <= 8) {
+                console.log(`📚 Loading Lesson ${nextLessonId}...`);
+                setTimeout(() => {
+                    this.loadLesson(nextLessonId);
+                }, 500);
+            }
+
             return false;
         }
 
@@ -578,8 +588,24 @@ class LessonEngine {
         // Create main panel container
         panelContainer = document.createElement('div');
         panelContainer.id = 'lesson-panel';
+
+        // Build lesson selector options
+        let lessonOptions = '';
+        for (let i = 1; i <= 8; i++) {
+            const isCompleted = this.lessonProgress.completedLessons?.includes(i);
+            const isSelected = this.currentLesson.id === i;
+            const completedBadge = isCompleted ? ' ✓' : '';
+            lessonOptions += `<option value="${i}" ${isSelected ? 'selected' : ''}>Lesson ${i}${completedBadge}</option>`;
+        }
+
         panelContainer.innerHTML = `
             <div class="lesson-panel-header">
+                <div class="lesson-selector-wrapper">
+                    <label for="lesson-selector" class="lesson-selector-label">Jump to Lesson:</label>
+                    <select id="lesson-selector" class="lesson-selector">
+                        ${lessonOptions}
+                    </select>
+                </div>
                 <h2 class="lesson-panel-title">${this.currentLesson.title}</h2>
                 <p class="lesson-panel-subtitle">${this.currentLesson.description}</p>
                 <div class="lesson-progress-bar">
@@ -973,6 +999,7 @@ class LessonEngine {
     attachEventListeners() {
         const nextBtn = document.getElementById('lesson-next-btn');
         const prevBtn = document.getElementById('lesson-prev-btn');
+        const lessonSelector = document.getElementById('lesson-selector');
 
         if (nextBtn) {
             nextBtn.addEventListener('click', () => this.nextStep());
@@ -980,6 +1007,14 @@ class LessonEngine {
 
         if (prevBtn) {
             prevBtn.addEventListener('click', () => this.previousStep());
+        }
+
+        // Lesson selector dropdown
+        if (lessonSelector) {
+            lessonSelector.addEventListener('change', (event) => {
+                const lessonId = parseInt(event.target.value);
+                this.loadLesson(lessonId);
+            });
         }
     }
 
