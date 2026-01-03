@@ -37,7 +37,30 @@ This will display:
    - These sections apply to ALL features and should be understood first
 2. **Feature Details** (title, time estimate, files to create/modify)
 3. **Complete Agent Prompt** (ready to copy-paste to the agent)
-4. Print to stdout for easy reading
+
+#### Pipe directly to clipboard (recommended):
+
+**macOS:**
+```bash
+python3 copy_feature.py 1.5 | pbcopy
+```
+
+**Linux (with wl-copy):**
+```bash
+python3 copy_feature.py 1.5 | wl-copy
+```
+
+**Linux (with xclip):**
+```bash
+python3 copy_feature.py 1.5 | xclip -selection clipboard
+```
+
+**Windows (PowerShell):**
+```powershell
+python3 copy_feature.py 1.5 | Set-Clipboard
+```
+
+The output is optimized for piping - no extraneous messages, just the feature content ready to paste to your agent!
 
 #### Save feature to file:
 ```bash
@@ -59,22 +82,29 @@ python3 copy_feature.py --list
 **Step 2: Choose a feature to implement**
 Pick the next feature from the list. Example: Feature 0.1
 
-**Step 3: Extract the feature with all context**
+**Step 3: Extract and copy to clipboard**
 ```bash
+# On macOS:
+python3 copy_feature.py 0.1 | pbcopy
+
+# On Linux (wl-copy):
+python3 copy_feature.py 0.1 | wl-copy
+
+# On Linux (xclip):
+python3 copy_feature.py 0.1 | xclip -selection clipboard
+
+# Or view first (without copying):
 python3 copy_feature.py 0.1
 ```
 
-This outputs three sections:
-- **Agent Guidelines & Project Context** (General Principles + Project Structure)
-- **Feature Details** (title, time, files)
-- **Agent Prompt** (detailed instructions)
+This extracts all the context the agent needs:
+- **Agent Guidelines & Best Practices** (applies to all features)
+- **Project Structure** (so agent understands the architecture)
+- **Feature Details** (title, time, files to create/modify)
+- **Specific Feature Prompt** (detailed instructions for this task)
 
-**Step 4: Copy and send to agent**
-Copy the entire output (or just the "Agent Prompt" section if you've already discussed guidelines).
-The output includes:
-- General Principles (applies to all features)
-- Project Structure (so agent understands the architecture)
-- Specific feature prompt (the detailed instructions)
+**Step 4: Paste to agent**
+Open your chat with the agent and paste the content. Everything is pre-formatted and ready to go!
 
 **Step 5: Test after implementation**
 Use the test steps provided in the feature prompt to verify the implementation works.

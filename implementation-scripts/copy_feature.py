@@ -271,22 +271,19 @@ def main():
     feature = extract_feature(feature_id)
 
     if not feature or not feature['agent_prompt']:
-        print(f"Error: Feature {feature_id} not found or has no agent prompt")
-        print("\nUse --list to see all available features:")
-        print("  python copy_feature.py --list")
+        print(f"Error: Feature {feature_id} not found or has no agent prompt", file=sys.stderr)
+        print("Use --list to see all available features:", file=sys.stderr)
+        print("  python copy_feature.py --list", file=sys.stderr)
         sys.exit(1)
 
-    # Display output
+    # Display output (clean, no extra messages for piping to clipboard)
     output = format_output(feature)
-    print(output)
+    print(output, end='')
 
-    # Save to file if requested
+    # Save to file if requested (separate from stdout)
     if save_flag:
         filepath = save_to_file(feature)
-        print(f"\n✓ Saved to: {filepath}")
-    else:
-        print("\nTip: Use --save flag to save to file")
-        print(f"  python copy_feature.py {feature_id} --save\n")
+        print(f"\n✓ Saved to: {filepath}", file=sys.stderr)
 
 
 if __name__ == "__main__":
