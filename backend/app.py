@@ -19,9 +19,22 @@ Controllers will be added in the next feature to handle specific routes.
 """
 
 import os
+import sys
 import sqlite3
 from flask import Flask, jsonify
 from flask_cors import CORS
+
+# Add project root to sys.path when running this script directly
+# This enables "from backend..." imports to work with:
+# - python backend/app.py
+# - python3 backend/app.py
+# - npm start
+# Without this, Python would only add the backend/ directory to sys.path
+if __name__ == '__main__' or __package__ is None:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(current_dir)
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
 
 # Import Controllers (Blueprints)
 # Controllers handle specific route groups and orchestrate between Models and Views
