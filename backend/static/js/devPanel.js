@@ -767,7 +767,7 @@ class DevPanel {
         }
 
         // Calculate total execution time
-        const totalTime = calls.reduce((sum, call) => sum + (call.duration || 0), 0);
+        const totalTime = calls.reduce((sum, call) => sum + (call.duration_ms || 0), 0);
 
         // Create controls for filtering
         let html = `
@@ -843,7 +843,7 @@ class DevPanel {
      * @returns {string} HTML for this method call node
      */
     createMethodCallNode(call, index) {
-        const { method, args = [], kwargs = {}, return_value, duration = 0 } = call;
+        const { method_name: method, args = [], kwargs = {}, return_value, duration_ms: duration = 0 } = call;
         const layer = this.getMethodLayer(method);
         const layerColor = {
             'model': 'layer-model',

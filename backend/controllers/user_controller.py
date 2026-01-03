@@ -53,6 +53,9 @@ from backend.utils.response_helpers import wants_json, success_response, error_r
 # Import tracked template renderer for automatic view data tracking
 from backend.utils.request_tracker import tracked_render_template
 
+# Import method call tracking decorator
+from backend.utils.decorators import log_method_call
+
 
 # ============================================================================
 # BLUEPRINT SETUP
@@ -69,6 +72,7 @@ users_bp = Blueprint('users', __name__, url_prefix='/users')
 # LIST ALL USERS
 # ============================================================================
 @users_bp.route('/', methods=['GET'])
+@log_method_call
 def index():
     """
     List all users.
@@ -106,6 +110,7 @@ def index():
 # SHOW SINGLE USER
 # ============================================================================
 @users_bp.route('/<int:user_id>', methods=['GET'])
+@log_method_call
 def show(user_id):
     """
     Show a single user's details.
@@ -152,6 +157,7 @@ def show(user_id):
 # SHOW CREATE FORM
 # ============================================================================
 @users_bp.route('/new', methods=['GET'])
+@log_method_call
 def new():
     """
     Show the form for creating a new user.
@@ -185,6 +191,7 @@ def new():
 # CREATE NEW USER
 # ============================================================================
 @users_bp.route('/', methods=['POST'], strict_slashes=False)
+@log_method_call
 def create():
     """
     Create a new user from form data.
@@ -265,6 +272,7 @@ def create():
 # SHOW EDIT FORM
 # ============================================================================
 @users_bp.route('/<int:user_id>/edit', methods=['GET'])
+@log_method_call
 def edit(user_id):
     """
     Show the form for editing an existing user.
@@ -312,6 +320,7 @@ def edit(user_id):
 # UPDATE USER
 # ============================================================================
 @users_bp.route('/<int:user_id>/update', methods=['POST'], strict_slashes=False)
+@log_method_call
 def update(user_id):
     """
     Update an existing user with form data.
@@ -409,6 +418,7 @@ def update(user_id):
 # DELETE USER
 # ============================================================================
 @users_bp.route('/<int:user_id>/delete', methods=['POST'], strict_slashes=False)
+@log_method_call
 def delete(user_id):
     """
     Delete a user.

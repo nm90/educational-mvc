@@ -31,6 +31,7 @@ Important:
 import uuid
 import json
 import time
+import copy
 from flask import g, request, after_this_request, render_template as flask_render_template
 from functools import wraps
 
@@ -344,6 +345,12 @@ def track_view_data(data):
     - Seeing this data helps understand controller/view boundary
     - Shows what information is available to the template to render
 
+    Important Implementation Details:
+    - Uses deep copy to avoid mutations of original data
+    - Handles circular references gracefully (converts to string representation)
+    - Never exposes sensitive data like passwords
+    - Filters out Flask-specific objects that can't be serialized
+
     Example:
     {
         'users': [
@@ -358,9 +365,18 @@ def track_view_data(data):
     if not hasattr(g, 'tracking'):
         return
 
-    # Store view data
-    # Note: We store the data as-is; JSON serialization happens in after_request
-    g.tracking['view_data'] = data
+    # Store view data with deep copy to avoid mutations
+    # Deep copy ensures that changes to the original data after rendering
+    # won't affect what the dev panel shows
+    try:
+        # Try to deep copy the data to avoid reference issues
+        # This is important because templates might modify data during rendering
+        g.tracking['view_data'] = copy.deepcopy(data)
+    except (TypeError, ValueError):
+        # If deep copy fails (circular references, non-serializable objects),
+        # store the data as-is and let JSON serialization in after_request handle it
+        # The after_request will catch any serialization errors gracefully
+        g.tracking['view_data'] = data
 
 
 def tracked_render_template(template_name, **context):

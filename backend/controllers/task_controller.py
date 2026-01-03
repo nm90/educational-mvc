@@ -60,6 +60,9 @@ from backend.utils.response_helpers import wants_json, success_response, error_r
 # Import tracked template renderer for automatic view data tracking
 from backend.utils.request_tracker import tracked_render_template
 
+# Import method call tracking decorator
+from backend.utils.decorators import log_method_call
+
 
 # ============================================================================
 # BLUEPRINT SETUP
@@ -76,6 +79,7 @@ tasks_bp = Blueprint('tasks', __name__, url_prefix='/tasks')
 # LIST ALL TASKS
 # ============================================================================
 @tasks_bp.route('/', methods=['GET'])
+@log_method_call
 def index():
     """
     List all tasks with owner and assignee details.
@@ -121,6 +125,7 @@ def index():
 # SHOW SINGLE TASK
 # ============================================================================
 @tasks_bp.route('/<int:task_id>', methods=['GET'])
+@log_method_call
 def show(task_id):
     """
     Show a single task's details with owner and assignee information.
@@ -169,6 +174,7 @@ def show(task_id):
 # SHOW CREATE FORM
 # ============================================================================
 @tasks_bp.route('/new', methods=['GET'])
+@log_method_call
 def new():
     """
     Show the form for creating a new task.
@@ -215,6 +221,7 @@ def new():
 # CREATE NEW TASK
 # ============================================================================
 @tasks_bp.route('/', methods=['POST'], strict_slashes=False)
+@log_method_call
 def create():
     """
     Create a new task from form data.
@@ -318,6 +325,7 @@ def create():
 # SHOW EDIT FORM
 # ============================================================================
 @tasks_bp.route('/<int:task_id>/edit', methods=['GET'])
+@log_method_call
 def edit(task_id):
     """
     Show the form for editing an existing task.
@@ -378,6 +386,7 @@ def edit(task_id):
 # UPDATE TASK
 # ============================================================================
 @tasks_bp.route('/<int:task_id>/update', methods=['POST'], strict_slashes=False)
+@log_method_call
 def update(task_id):
     """
     Update an existing task with form data.
@@ -503,6 +512,7 @@ def update(task_id):
 # DELETE TASK
 # ============================================================================
 @tasks_bp.route('/<int:task_id>/delete', methods=['POST'], strict_slashes=False)
+@log_method_call
 def delete(task_id):
     """
     Delete a task.
