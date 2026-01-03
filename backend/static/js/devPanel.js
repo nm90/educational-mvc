@@ -2516,6 +2516,65 @@ class DevPanel {
     }
 }
 
+// Global function to save request data immediately when __DEBUG__ is available
+// This runs before DevPanel initialization to ensure POST requests are captured
+// even if the page redirects before DevPanel fully loads
+window.saveDebugDataIfAvailable = function() {
+    if (window.__DEBUG__ && window.__DEBUG__.request_info) {
+        try {
+            // Quick save to sessionStorage before page potentially redirects
+            const requestInfo = window.__DEBUG__.request_info;
+            const requestId = window.__DEBUG__.request_id;
+
+            if (requestId) {
+                // Load existing history
+                let history = [];
+                try {
+                    const stored = sessionStorage.getItem('devPanel-requestHistory');
+                    if (stored) {
+                        history = JSON.parse(stored);
+                    }
+                } catch (e) {
+                    history = [];
+                }
+
+                // Check if this request is already saved
+                const alreadySaved = history.some(r => r.request_id === requestId);
+                if (!alreadySaved && history.length < 20) {
+                    // Create history entry
+                    const entry = {
+                        request_id: requestId,
+                        method: requestInfo.method || 'GET',
+                        url: requestInfo.url || '/',
+                        timestamp: requestInfo.timestamp || Date.now() / 1000,
+                        debugData: JSON.parse(JSON.stringify(window.__DEBUG__)),
+                        summary: {
+                            methodCallCount: (window.__DEBUG__.method_calls || []).length,
+                            queryCount: (window.__DEBUG__.db_queries || []).length,
+                            status: requestInfo.status || 200,
+                            duration_ms: (window.__DEBUG__.timing?.request_end - window.__DEBUG__.timing?.request_start) * 1000 || 0
+                        }
+                    };
+
+                    // Add to history
+                    history.unshift(entry);
+                    if (history.length > 20) {
+                        history = history.slice(0, 20);
+                    }
+
+                    // Save to storage
+                    sessionStorage.setItem('devPanel-requestHistory', JSON.stringify(history));
+                }
+            }
+        } catch (err) {
+            console.warn('[DevPanel] Error saving debug data:', err);
+        }
+    }
+};
+
+// Call immediately in case __DEBUG__ is already set
+window.saveDebugDataIfAvailable();
+
 // Initialize panel when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {

@@ -187,7 +187,7 @@ def after_request(response):
             g.controller_name = 'Unknown'
         g.tracking['request_info']['controller'] = g.controller_name
 
-    # Only inject debug object into HTML responses
+    # Inject debug object into HTML responses and redirects
     if response.content_type and 'text/html' in response.content_type:
         try:
             # Get the response HTML as string
@@ -214,6 +214,11 @@ def after_request(response):
             if '</body>' in response_html:
                 modified_html = response_html.replace('</body>', f'{debug_script}</body>')
                 response.set_data(modified_html)
+            elif response_html.strip() == '':
+                # Empty response body (typical for redirects)
+                # Create minimal HTML with debug object so JS can read it before redirect
+                minimal_html = f'<html><head></head><body><script>window.__DEBUG__ = {debug_json};</script></body></html>'
+                response.set_data(minimal_html)
 
         except Exception as e:
             # If something goes wrong, don't break the response
