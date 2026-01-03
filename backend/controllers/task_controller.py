@@ -54,6 +54,9 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from backend.models.task import Task
 from backend.models.user import User
 
+# Import response helpers for dual-mode (HTML/JSON) support
+from backend.utils.response_helpers import wants_json, success_response, error_response
+
 
 # ============================================================================
 # BLUEPRINT SETUP
@@ -212,20 +215,17 @@ def create():
     """
     Create a new task from form data.
 
-    MVC Flow:
+    Now supports both HTML form submission and JSON API requests.
+
+    MVC Flow (both modes):
     1. Controller receives POST /tasks with form data
-    2. Controller extracts fields from request (title, description, status, etc.)
-    3. Controller calls Task.create(...) (Model layer)
-    4. Model validates data:
-       - Checks required fields (title, status, priority, owner_id)
-       - Validates foreign keys (owner_id and assignee_id exist)
-       - Checks enum constraints (status, priority)
-       - If invalid: raises ValueError
-       - If valid: inserts into database
+    2. Controller extracts fields from request
+    3. Controller calls Task.create(...) (Model layer - unchanged)
+    4. Model validates data and inserts into database
     5. Controller handles result:
-       - On error: re-render form with error message and users list
-       - On success: redirect to /tasks with success message
-    6. View renders appropriate response
+       - HTML mode: redirect to /tasks with flash message
+       - JSON mode: return {success: true, data: {...}, __DEBUG__: {...}}
+    6. Response includes full __DEBUG__ trace
 
     HTTP: POST /tasks
     Form data: title, description, status, priority, owner_id, assignee_id
@@ -233,26 +233,34 @@ def create():
     Dev Panel shows:
     - Task.create() method call with arguments
     - Task.validate() being called
-    - Foreign key validation queries (check owner/assignee exist)
-    - INSERT query (if validation passes)
-    - Validation error (if it fails)
+    - Foreign key validation queries
+    - INSERT query execution
+    - __DEBUG__ available in same response (no redirect needed in JSON mode)
 
     ✅ DO: Let Model handle validation - Controller catches errors
-    ✅ DO: Use flash messages to communicate success/failure to user
+    ✅ DO: Support both HTML and JSON clients from one endpoint
     ✅ DO: Re-load users list when re-rendering form after error
-    ✅ DO: Handle empty assignee_id (convert to None for nullable FK)
     ⚠️ DON'T: Duplicate validation logic in Controller
 
-    Covered in: Lesson 5 (form submission with relationships)
+    Covered in: Lesson 5 (form submission with relationships), Progressive enhancement
     """
     # Extract form data from request
-    # request.form contains POST data from HTML forms
-    title = request.form.get('title', '').strip()
-    description = request.form.get('description', '').strip()
-    status = request.form.get('status', '').strip()
-    priority = request.form.get('priority', '').strip()
-    owner_id = request.form.get('owner_id', '').strip()
-    assignee_id = request.form.get('assignee_id', '').strip()
+    # Works with both HTML forms (request.form) and JSON (request.get_json)
+    if request.is_json:
+        data = request.get_json()
+        title = data.get('title', '').strip()
+        description = data.get('description', '').strip()
+        status = data.get('status', '').strip()
+        priority = data.get('priority', '').strip()
+        owner_id = data.get('owner_id', '').strip()
+        assignee_id = data.get('assignee_id', '').strip()
+    else:
+        title = request.form.get('title', '').strip()
+        description = request.form.get('description', '').strip()
+        status = request.form.get('status', '').strip()
+        priority = request.form.get('priority', '').strip()
+        owner_id = request.form.get('owner_id', '').strip()
+        assignee_id = request.form.get('assignee_id', '').strip()
 
     # Convert string IDs to integers
     # Handle empty assignee_id (optional field) - convert to None
@@ -260,35 +268,46 @@ def create():
         owner_id = int(owner_id) if owner_id else None
         assignee_id = int(assignee_id) if assignee_id else None
     except ValueError:
-        flash('Invalid user ID format', 'error')
-        users = User.get_all()
-        return render_template('tasks/new.html', users=users,
-                             title=title, description=description,
-                             status=status, priority=priority)
+        error_msg = 'Invalid user ID format'
+        if wants_json():
+            return error_response(error_msg, code='INVALID_INPUT', status=400)
+        else:
+            flash(error_msg, 'error')
+            users = User.get_all()
+            return render_template('tasks/new.html', users=users,
+                                 title=title, description=description,
+                                 status=status, priority=priority)
 
     try:
-        # Call Model to create task
-        # Model.create() validates and inserts into database
-        # If validation fails, it raises ValueError
-        Task.create(title, description, status, priority, owner_id, assignee_id)
+        # Call Model to create task (Model layer unchanged)
+        task = Task.create(title, description, status, priority, owner_id, assignee_id)
 
-        # Success! Redirect to task list with success message
-        flash('Task created successfully!', 'success')
-        return redirect(url_for('tasks.index'))
+        # Success! Return appropriate response based on client preference
+        if wants_json():
+            return success_response(
+                data={'task': task},
+                redirect=url_for('tasks.show', task_id=task['id'])
+            )
+        else:
+            flash('Task created successfully!', 'success')
+            return redirect(url_for('tasks.index'))
 
     except ValueError as e:
-        # Validation failed - Model raised ValueError
-        # Re-render form with error message and submitted data
-        flash(str(e), 'error')
-
-        # Re-load users for dropdowns when re-rendering form
-        # Controller coordinates multiple models even during error handling
-        users = User.get_all()
-
-        return render_template('tasks/new.html', users=users,
-                             title=title, description=description,
-                             status=status, priority=priority,
-                             owner_id=owner_id, assignee_id=assignee_id)
+        # Validation failed
+        if wants_json():
+            return error_response(
+                message=str(e),
+                code='VALIDATION_ERROR',
+                status=400
+            )
+        else:
+            flash(str(e), 'error')
+            # Re-load users for dropdowns when re-rendering form
+            users = User.get_all()
+            return render_template('tasks/new.html', users=users,
+                                 title=title, description=description,
+                                 status=status, priority=priority,
+                                 owner_id=owner_id, assignee_id=assignee_id)
 
 
 # ============================================================================
@@ -408,52 +427,72 @@ def update(task_id):
         owner_id = int(owner_id) if owner_id else None
         assignee_id = int(assignee_id) if assignee_id else None
     except ValueError:
-        flash('Invalid user ID format', 'error')
-        users = User.get_all()
-        return render_template('tasks/edit.html', task={
-            'id': task_id,
-            'title': title,
-            'description': description,
-            'status': status,
-            'priority': priority,
-            'owner_id': owner_id,
-            'assignee_id': assignee_id
-        }, users=users)
+        error_msg = 'Invalid user ID format'
+        if wants_json():
+            return error_response(error_msg, code='INVALID_INPUT', status=400)
+        else:
+            flash(error_msg, 'error')
+            users = User.get_all()
+            return render_template('tasks/edit.html', task={
+                'id': task_id,
+                'title': title,
+                'description': description,
+                'status': status,
+                'priority': priority,
+                'owner_id': owner_id,
+                'assignee_id': assignee_id
+            }, users=users)
 
     try:
-        # Call Model to update task
-        # Model validates data, checks if task exists, then updates
+        # Call Model to update task (Model layer unchanged)
         updated_task = Task.update(task_id, title=title, description=description,
                                    status=status, priority=priority,
                                    owner_id=owner_id, assignee_id=assignee_id)
 
         # Check if task was found
         if not updated_task:
-            flash('Task not found', 'error')
-            return render_template('errors/404.html', message='Task not found'), 404
+            if wants_json():
+                return error_response(
+                    message='Task not found',
+                    code='NOT_FOUND',
+                    status=404
+                )
+            else:
+                flash('Task not found', 'error')
+                return render_template('errors/404.html', message='Task not found'), 404
 
-        # Success! Redirect to task detail page
-        flash('Task updated successfully!', 'success')
-        return redirect(url_for('tasks.show', task_id=task_id))
+        # Success! Return appropriate response based on client preference
+        if wants_json():
+            return success_response(
+                data={'task': updated_task},
+                redirect=url_for('tasks.show', task_id=task_id)
+            )
+        else:
+            flash('Task updated successfully!', 'success')
+            return redirect(url_for('tasks.show', task_id=task_id))
 
     except ValueError as e:
-        # Validation failed - re-render form with error
-        flash(str(e), 'error')
-
-        # Re-load users for dropdowns when re-rendering form
-        # Controller coordinates multiple models even during error handling
-        users = User.get_all()
-
-        # Pass the submitted values back to re-fill the form
-        return render_template('tasks/edit.html', task={
-            'id': task_id,
-            'title': title,
-            'description': description,
-            'status': status,
-            'priority': priority,
-            'owner_id': owner_id,
-            'assignee_id': assignee_id
-        }, users=users)
+        # Validation failed
+        if wants_json():
+            return error_response(
+                message=str(e),
+                code='VALIDATION_ERROR',
+                status=400
+            )
+        else:
+            flash(str(e), 'error')
+            # Re-load users for dropdowns when re-rendering form
+            users = User.get_all()
+            # Pass the submitted values back to re-fill the form
+            return render_template('tasks/edit.html', task={
+                'id': task_id,
+                'title': title,
+                'description': description,
+                'status': status,
+                'priority': priority,
+                'owner_id': owner_id,
+                'assignee_id': assignee_id
+            }, users=users)
 
 
 # ============================================================================
@@ -464,16 +503,16 @@ def delete(task_id):
     """
     Delete a task.
 
-    MVC Flow:
+    Now supports both HTML form submission and JSON API requests.
+
+    MVC Flow (both modes):
     1. Controller receives POST /tasks/<id>/delete request
-    2. Controller calls Task.delete(id) (Model layer)
-    3. Model checks if task exists and deletes:
-       - If not found: returns False
-       - If deleted: returns True
+    2. Controller calls Task.delete(id) (Model layer - unchanged)
+    3. Model checks if task exists and deletes
     4. Controller handles result:
-       - On not found: flash error message
-       - On success: flash success message
-    5. Redirect to task list either way
+       - HTML mode: redirect to list with flash message
+       - JSON mode: return {success: true/false, __DEBUG__: {...}}
+    5. Response includes full __DEBUG__ trace
 
     HTTP: POST /tasks/<id>/delete
 
@@ -483,8 +522,9 @@ def delete(task_id):
     Dev Panel shows:
     - Task.delete() method call with task_id
     - Task.get_by_id() checking if task exists
-    - DELETE query (if task found)
+    - DELETE query execution (if task found)
     - Boolean return value
+    - __DEBUG__ available in same response (no redirect needed in JSON mode)
 
     Note: We use POST for delete (not GET) because:
     - GET requests should be safe (no side effects)
@@ -492,17 +532,33 @@ def delete(task_id):
     - Prevents accidental deletion via link clicks or bots
 
     ✅ DO: Use POST/DELETE for destructive actions
+    ✅ DO: Support both HTML and JSON clients from one endpoint
     ⚠️ DON'T: Allow GET requests to modify data
 
-    Covered in: Lesson 5 (HTTP method semantics)
+    Covered in: Lesson 5 (HTTP method semantics), Progressive enhancement
     """
-    # Call Model to delete task
+    # Call Model to delete task (Model layer unchanged)
     success = Task.delete(task_id)
 
-    if success:
-        flash('Task deleted successfully!', 'success')
+    if wants_json():
+        # JSON mode: return status as JSON
+        if success:
+            return success_response(
+                data={'deleted': True},
+                redirect=url_for('tasks.index')
+            )
+        else:
+            return error_response(
+                message='Task not found',
+                code='NOT_FOUND',
+                status=404
+            )
     else:
-        flash('Task not found', 'error')
+        # HTML mode: flash message and redirect
+        if success:
+            flash('Task deleted successfully!', 'success')
+        else:
+            flash('Task not found', 'error')
 
-    # Always redirect to task list
-    return redirect(url_for('tasks.index'))
+        # Always redirect to task list
+        return redirect(url_for('tasks.index'))
