@@ -219,6 +219,9 @@ def after_request(response):
                 # Create HTML with debug object + JavaScript redirect
                 # This gives the script time to execute BEFORE the redirect happens
                 redirect_location = response.headers.get('Location', '/')
+                # Escape the redirect location for use in JavaScript string
+                redirect_location_escaped = redirect_location.replace("\\", "\\\\").replace("'", "\\'")
+
                 minimal_html = f'''<!DOCTYPE html>
 <html>
 <head>
@@ -227,11 +230,60 @@ def after_request(response):
 </head>
 <body>
 <script>
-window.__DEBUG__ = {debug_json};
-// Give the script time to execute and save data before redirecting
-window.location = '{redirect_location}';
+try {{
+    // Set the debug data
+    window.__DEBUG__ = {debug_json};
+
+    // Save to sessionStorage immediately
+    if (window.__DEBUG__ && window.__DEBUG__.request_info) {{
+        var requestInfo = window.__DEBUG__.request_info;
+        var requestId = window.__DEBUG__.request_id;
+
+        if (requestId) {{
+            var history = [];
+            try {{
+                var stored = sessionStorage.getItem('devPanel-requestHistory');
+                if (stored) {{
+                    history = JSON.parse(stored);
+                }}
+            }} catch (e) {{}}
+
+            var alreadySaved = history.some(function(r) {{ return r.request_id === requestId; }});
+            if (!alreadySaved && history.length < 20) {{
+                var entry = {{
+                    request_id: requestId,
+                    method: requestInfo.method || 'GET',
+                    url: requestInfo.url || '/',
+                    timestamp: requestInfo.timestamp || (Date.now() / 1000),
+                    debugData: JSON.parse(JSON.stringify(window.__DEBUG__)),
+                    summary: {{
+                        methodCallCount: (window.__DEBUG__.method_calls || []).length,
+                        queryCount: (window.__DEBUG__.db_queries || []).length,
+                        status: requestInfo.status || 200,
+                        duration_ms: ((window.__DEBUG__.timing && window.__DEBUG__.timing.request_end && window.__DEBUG__.timing.request_start) ? (window.__DEBUG__.timing.request_end - window.__DEBUG__.timing.request_start) * 1000 : 0)
+                    }}
+                }};
+
+                history.unshift(entry);
+                if (history.length > 20) {{
+                    history = history.slice(0, 20);
+                }}
+
+                sessionStorage.setItem('devPanel-requestHistory', JSON.stringify(history));
+                console.log('[POST] Saved request to history:', requestId);
+            }}
+        }}
+    }}
+}} catch (err) {{
+    console.warn('[POST] Error saving request:', err);
+}}
+
+// Now redirect after a brief delay to ensure save completes
+setTimeout(function() {{
+    window.location = '{redirect_location_escaped}';
+}}, 50);
 </script>
-<p>Redirecting...</p>
+<p>Processing request...</p>
 </body>
 </html>'''
                 response.set_data(minimal_html)
