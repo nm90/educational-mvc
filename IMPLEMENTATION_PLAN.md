@@ -1605,6 +1605,129 @@ When complete:
 
 **Test Steps**: Load any page, open State Inspector, verify view_data populated
 
+#### Feature 2.15: Dev Panel - Request History Selector
+**Time**: 45min
+**Files to modify**:
+- `/backend/static/js/devPanel.js`
+- `/backend/static/css/devpanel.css`
+- `/backend/utils/request_tracker.py`
+
+**Agent Prompt**:
+```
+You are implementing request history tracking and selection for the developer panel.
+
+CONTEXT:
+- Currently, dev panel shows data only from the current request
+- When a fresh page load happens (GET), previous POST request data is lost
+- Students want to inspect POST calls even after navigating away
+- Solution: Store request history in localStorage and allow selection
+
+TASK:
+Update the developer panel to track and display request history:
+
+1. Update backend/utils/request_tracker.py:
+
+   - Ensure __DEBUG__ object includes unique request_id
+   - Format: UUID already generated (from Feature 2.1)
+   - Also include: request_method, request_url, request_timestamp
+
+2. Update frontend/public/js/devPanel.js:
+
+   - Add requestHistory array:
+     * Store up to 20 most recent requests
+     * Each item: {request_id, method, url, timestamp, debugData}
+     * Save to sessionStorage (clears on tab close)
+
+   - Implement saveRequestToHistory():
+     * Called when new __DEBUG__ data loaded
+     * Store request metadata and full debugData
+     * Trim oldest if exceeds 20 items
+     * Display in request selector UI
+
+   - Implement renderRequestSelector():
+     * Dropdown/list showing recent requests
+     * Format: "POST /users at 14:32:45"
+     * Color-code by HTTP method (GET=blue, POST=green, etc)
+     * Click to load that request's data in dev panel
+     * Current request highlighted
+
+   - Implement selectRequest(requestId):
+     * Load stored debugData
+     * Update all tabs to show data from selected request
+     * Show indicator "Viewing request from X ago"
+     * Tabs update with historical data (read-only view)
+
+   - UI placement:
+     * Add above tab bar in dev panel
+     * Dropdown or scrollable list
+     * Show "Current" vs "History" clearly
+     * Clear history button (with confirmation)
+
+3. Update frontend/public/css/devpanel.css:
+
+   - Style request selector:
+     * Clean dropdown/list appearance
+     * Method badges (GET=blue, POST=green, PUT=orange, DELETE=red)
+     * Timestamps in readable format
+     * Hover effects
+     * Active/selected state
+
+4. Features to implement:
+
+   - sessionStorage persistence:
+     * Survives page reloads within same session
+     * Clears when tab closed (privacy)
+     * Store as JSON
+
+   - Request metadata tracking:
+     * Request ID (UUID)
+     * HTTP method
+     * Request URL
+     * Timestamp (readable + unix)
+     * Response status code
+     * Method call count
+     * Database query count
+
+   - Request summary:
+     * Show "3 method calls, 45ms, 200 OK"
+     * Help identify which request without opening it
+
+5. Display format example:
+   ```
+   Request Selector (viewing history)
+
+   ▼ Current Request: POST /tasks at 14:32:58
+
+   Previous Requests:
+   • GET /tasks (14:32:42) - 5 calls, 35ms ✓
+   • POST /tasks (14:32:38) - 3 calls, 42ms ✓
+   • GET /users (14:32:15) - 2 calls, 28ms ✓
+   • POST /users (14:31:50) - 3 calls, 38ms ✓
+
+   [Clear History]
+   ```
+
+IMPORTANT:
+- Don't expose __DEBUG__ data on page itself (security)
+- Use sessionStorage only (clears after tab closes)
+- Keep history lean (20 request limit)
+- Show clear indication of viewing history vs current
+- Allow returning to current request easily
+- Don't break if history unavailable
+
+When complete:
+- Commit: "feat: add request history selector to dev panel"
+- Ask user to:
+  1. Create a user (POST /users)
+  2. Navigate to tasks list (GET /tasks)
+  3. Create a task (POST /tasks)
+  4. Open dev panel and verify request dropdown shows all 3 requests
+  5. Click previous POST /users request to view its debug data
+  6. Verify data is from that request, not current GET /tasks
+```
+
+**Test Steps**: Create/update resources, navigate, open dev panel request selector, verify can view previous POST data
+
 ---
 
 ### Phase 3: Lesson Engine
@@ -2998,21 +3121,22 @@ When complete:
 
 ## Summary
 
-### Total Features: 39 micro-features across 5 phases
+### Total Features: 40 micro-features across 5 phases
 
 **Phase 0**: 1 feature (scaffolding)
 **Phase 1**: 9 features (Core MVC)
-**Phase 2**: 14 features (Async JSON API + Developer Panel)
+**Phase 2**: 15 features (Async JSON API + Developer Panel)
   - Features 2.1-2.7: Async JSON API architecture (COMPLETED)
   - Features 2.8-2.14: Developer Panel UI and tabs (PENDING)
+  - Feature 2.15: Request History Selector (NEW ENHANCEMENT)
 **Phase 3**: 6 features (Lesson Engine)
 **Phase 4**: 5 features (Mode Toggle & Polish)
 **Phase 5**: 6 features (Deployment & Docs)
 
 ### Estimated Total Time
-- Development: ~25-30 hours
+- Development: ~25-31 hours (includes new Feature 2.15: +45min)
 - Testing after each feature: ~5-7 hours
-- **Total**: ~30-37 hours
+- **Total**: ~30-38 hours
 
 ### Dependencies
 - Each feature builds on previous ones
@@ -3043,7 +3167,8 @@ After completing all features, the app should:
 ---
 
 **Plan Created**: 2026-01-03
-**Last Updated**: 2026-01-03 (Updated for async JSON architecture)
-**Status**: Phase 2.1-2.7 Completed, Ready for Phase 2.8 (Dev Panel UI)
+**Last Updated**: 2026-01-03
+**Status**: Phase 2.1-2.7 Completed, Phase 2.8-2.10 Completed, Ready for Feature 2.11+ (Database & Network Tabs)
+**Recent Addition**: Feature 2.15 - Request History Selector (allows viewing previous request data even after page navigation)
 **Architecture**: Hybrid dual-mode controllers supporting both traditional HTML and async JSON
 **Agent-Friendly**: Yes (detailed prompts included)
