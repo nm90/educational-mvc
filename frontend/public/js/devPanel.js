@@ -290,29 +290,41 @@ class DevPanel {
      * - New debug data is loaded
      *
      * Delegates to renderTabContent() to display tab-specific data.
+     * Attaches event listeners for interactive components.
      */
     updateCurrentTab() {
         const content = this.tabContents[this.currentTab];
         if (content) {
             content.innerHTML = this.renderTabContent(this.currentTab);
+
+            // Attach listeners for State Inspector tab
+            if (this.currentTab === 'state') {
+                // Use requestAnimationFrame to ensure DOM is ready
+                requestAnimationFrame(() => {
+                    this.attachStateInspectorListeners();
+                });
+            }
         }
     }
 
     /**
      * renderTabContent(tabName) - Generate HTML for tab content
      *
+     * Dispatches to appropriate render method based on tab type.
+     * Currently implements State Inspector. Others show placeholders.
+     *
      * Future features:
-     * - State: Display app state, view data, data types
      * - Methods: Show method call tree with args/return values
      * - Flow: Animated flow diagram (View → Controller → Model → DB)
      * - Network: List all HTTP requests with details
      * - Database: Show SQL queries with execution time
-     *
-     * Currently shows placeholder "Coming soon" message.
      */
     renderTabContent(tabName) {
+        if (tabName === 'state') {
+            return this.renderStateInspector();
+        }
+
         const tabLabels = {
-            'state': 'State Inspector',
             'methods': 'Method Calls',
             'flow': 'Flow Diagram',
             'network': 'Network Inspector',
@@ -320,7 +332,6 @@ class DevPanel {
         };
 
         const tabDescriptions = {
-            'state': 'View current app state and data passed to templates',
             'methods': 'See every Python method call with arguments and return values',
             'flow': 'Watch the request flow through MVC layers in real-time',
             'network': 'Inspect all HTTP requests and responses',
@@ -336,6 +347,335 @@ class DevPanel {
                 </p>
             </div>
         `;
+    }
+
+    /**
+     * renderStateInspector() - Render expandable JSON tree of view_data
+     *
+     * MVC Flow:
+     * - Reads view_data from backend (window.__DEBUG__.view_data)
+     * - Shows what data the controller passed to the view/template
+     * - Students can see exactly what values are available in Jinja2 templates
+     *
+     * Features:
+     * - Expandable/collapsible JSON tree structure
+     * - Search box to filter by key name
+     * - Copy button to copy entire JSON to clipboard
+     * - Syntax highlighting for types (strings, numbers, booleans, null)
+     * - Shows object/array sizes
+     *
+     * Lesson Reference:
+     * - Lesson 2: Understanding data flow View ← Controller ← Model
+     * - Lesson 5: What data reaches templates
+     */
+    renderStateInspector() {
+        const viewData = this.debugData.view_data || {};
+
+        // Check if data is empty
+        if (!viewData || Object.keys(viewData).length === 0) {
+            return `
+                <div class="state-inspector-empty">
+                    <p>No view data passed to template</p>
+                    <p style="font-size: 10px; margin-top: 10px; color: #858585;">
+                        The controller sent no data to the view
+                    </p>
+                </div>
+            `;
+        }
+
+        // Create controls (search box + copy button)
+        let html = `
+            <div class="state-inspector-controls">
+                <input
+                    type="text"
+                    class="state-inspector-search"
+                    placeholder="Search keys..."
+                    id="state-inspector-search"
+                    aria-label="Search state keys"
+                />
+                <button
+                    class="state-inspector-copy-btn"
+                    id="state-inspector-copy"
+                    title="Copy view_data JSON to clipboard"
+                    aria-label="Copy JSON"
+                >
+                    Copy JSON
+                </button>
+            </div>
+            <div class="state-inspector-tree" id="state-inspector-tree">
+        `;
+
+        // Build JSON tree
+        const treeHtml = this.createTreeNode('view_data', viewData, 0);
+        html += treeHtml + '</div>';
+
+        // After HTML is inserted, attach event listeners
+        // (done in updateCurrentTab via attachStateInspectorListeners)
+        return html;
+    }
+
+    /**
+     * createTreeNode(key, value, depth) - Recursively create tree node HTML
+     *
+     * Renders a single node in the JSON tree. Handles:
+     * - Objects (collapsible)
+     * - Arrays (collapsible with indices)
+     * - Primitives (strings, numbers, booleans)
+     * - Null/undefined
+     *
+     * @param {string} key - The key name (or index for arrays)
+     * @param {*} value - The value to display
+     * @param {number} depth - Current recursion depth (for indentation)
+     * @returns {string} HTML string for this node and children
+     */
+    createTreeNode(key, value, depth) {
+        const type = Array.isArray(value) ? 'array' : typeof value;
+        const isExpandable = value !== null && (type === 'object' || type === 'array');
+
+        let html = '<div class="tree-node" style="margin-left: ' + (depth * 16) + 'px">';
+
+        // Toggle button (only for expandable items)
+        if (isExpandable) {
+            html += `
+                <button
+                    class="tree-node-toggle collapsed"
+                    tabindex="0"
+                    aria-expanded="false"
+                >
+                    ▶
+                </button>
+            `;
+        } else {
+            html += '<span style="display: inline-block; width: 16px; margin: 0 4px 0 0;"></span>';
+        }
+
+        // Key and type info
+        html += '<span class="tree-node-content">';
+        html += `<span class="tree-node-key">${this.escapeHtml(key)}</span>`;
+
+        if (isExpandable) {
+            // Object or Array
+            const size = Array.isArray(value) ? value.length : Object.keys(value).length;
+            const typeLabel = Array.isArray(value) ? `Array[${size}]` : `Object {${size}}`;
+            html += ` <span class="tree-node-type">${typeLabel}</span>`;
+        } else {
+            // Primitive value
+            const displayValue = this.formatValue(value);
+            html += ` ${displayValue}`;
+        }
+
+        html += '</span>';
+
+        // Children (for objects and arrays)
+        if (isExpandable) {
+            html += '<div class="tree-node-children hidden">';
+
+            if (Array.isArray(value)) {
+                value.forEach((item, index) => {
+                    html += this.createTreeNode(index.toString(), item, depth + 1);
+                });
+            } else {
+                Object.entries(value).forEach(([k, v]) => {
+                    html += this.createTreeNode(k, v, depth + 1);
+                });
+            }
+
+            html += '</div>';
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    /**
+     * formatValue(value) - Format primitive value with syntax highlighting
+     *
+     * Returns HTML span with appropriate color class based on type.
+     *
+     * @param {*} value - The value to format
+     * @returns {string} HTML string with syntax highlighting
+     */
+    formatValue(value) {
+        if (value === null) {
+            return '<span class="tree-node-null">null</span>';
+        }
+
+        if (value === undefined) {
+            return '<span class="tree-node-null">undefined</span>';
+        }
+
+        const type = typeof value;
+
+        switch (type) {
+            case 'string':
+                return `<span class="tree-node-string">"${this.escapeHtml(value)}"</span>`;
+
+            case 'number':
+                return `<span class="tree-node-number">${value}</span> <span class="tree-node-type">(number)</span>`;
+
+            case 'boolean':
+                return `<span class="tree-node-boolean">${value ? 'true' : 'false'}</span>`;
+
+            default:
+                return `<span class="tree-node-value">${this.escapeHtml(String(value))}</span>`;
+        }
+    }
+
+    /**
+     * escapeHtml(str) - Escape HTML special characters
+     *
+     * Prevents XSS by escaping user-provided strings.
+     *
+     * @param {string} str - String to escape
+     * @returns {string} Escaped string safe for HTML
+     */
+    escapeHtml(str) {
+        if (typeof str !== 'string') {
+            return String(str);
+        }
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    /**
+     * attachStateInspectorListeners() - Attach event handlers for State Inspector
+     *
+     * Handles:
+     * - Toggle button clicks to expand/collapse tree nodes
+     * - Search box to filter tree by key name
+     * - Copy button to copy JSON to clipboard
+     */
+    attachStateInspectorListeners() {
+        const tree = document.getElementById('state-inspector-tree');
+        const searchInput = document.getElementById('state-inspector-search');
+        const copyBtn = document.getElementById('state-inspector-copy');
+
+        if (!tree) return;
+
+        // Attach toggle listeners to all toggle buttons
+        const toggleButtons = tree.querySelectorAll('.tree-node-toggle');
+        toggleButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.toggleNode(btn);
+            });
+
+            // Keyboard support: Space/Enter to toggle
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    this.toggleNode(btn);
+                }
+            });
+        });
+
+        // Search box listener
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                this.filterTree(e.target.value.toLowerCase());
+            });
+        }
+
+        // Copy button listener
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () => {
+                const viewData = this.debugData.view_data || {};
+                const json = JSON.stringify(viewData, null, 2);
+
+                navigator.clipboard.writeText(json).then(() => {
+                    // Show "copied" feedback
+                    const originalText = copyBtn.textContent;
+                    copyBtn.textContent = 'Copied!';
+                    copyBtn.classList.add('copied');
+
+                    setTimeout(() => {
+                        copyBtn.textContent = originalText;
+                        copyBtn.classList.remove('copied');
+                    }, 2000);
+                }).catch(err => {
+                    console.error('[DevPanel] Failed to copy JSON:', err);
+                    alert('Failed to copy JSON to clipboard');
+                });
+            });
+        }
+    }
+
+    /**
+     * toggleNode(toggleBtn) - Expand/collapse a tree node
+     *
+     * @param {HTMLElement} toggleBtn - The toggle button element
+     */
+    toggleNode(toggleBtn) {
+        const childrenDiv = toggleBtn.parentElement.querySelector('.tree-node-children');
+        if (!childrenDiv) return;
+
+        const isHidden = childrenDiv.classList.contains('hidden');
+
+        if (isHidden) {
+            // Expand
+            childrenDiv.classList.remove('hidden');
+            toggleBtn.classList.remove('collapsed');
+            toggleBtn.setAttribute('aria-expanded', 'true');
+        } else {
+            // Collapse
+            childrenDiv.classList.add('hidden');
+            toggleBtn.classList.add('collapsed');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+        }
+    }
+
+    /**
+     * filterTree(searchTerm) - Filter tree nodes by key name
+     *
+     * Shows/hides tree nodes based on whether their key matches the search term.
+     * Parent nodes are automatically shown if any child matches.
+     *
+     * @param {string} searchTerm - The search term (lowercase)
+     */
+    filterTree(searchTerm) {
+        const tree = document.getElementById('state-inspector-tree');
+        if (!tree) return;
+
+        const nodes = tree.querySelectorAll('.tree-node');
+        const visibleNodes = new Set();
+
+        // First pass: identify matching nodes
+        nodes.forEach(node => {
+            const keyElement = node.querySelector('.tree-node-key');
+            if (keyElement) {
+                const keyText = keyElement.textContent.toLowerCase();
+                if (searchTerm === '' || keyText.includes(searchTerm)) {
+                    visibleNodes.add(node);
+
+                    // Mark all parent nodes as visible too
+                    let parent = node.parentElement?.closest('.tree-node');
+                    while (parent) {
+                        visibleNodes.add(parent);
+                        parent = parent.parentElement?.closest('.tree-node');
+                    }
+                }
+            }
+        });
+
+        // Second pass: show/hide nodes
+        nodes.forEach(node => {
+            if (visibleNodes.has(node)) {
+                node.style.display = '';
+                // Expand parents to show matched children
+                const toggleBtn = node.querySelector('.tree-node-toggle');
+                if (toggleBtn && searchTerm !== '') {
+                    const childrenDiv = node.querySelector('.tree-node-children');
+                    if (childrenDiv) {
+                        childrenDiv.classList.remove('hidden');
+                        toggleBtn.classList.remove('collapsed');
+                        toggleBtn.setAttribute('aria-expanded', 'true');
+                    }
+                }
+            } else {
+                node.style.display = 'none';
+            }
+        });
     }
 
     /**
