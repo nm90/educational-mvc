@@ -1,0 +1,147 @@
+# Claude Code Configuration for Educational MVC App
+# This file sets up project-wide settings for agent-driven implementation
+
+name: "Educational MVC App"
+description: "Interactive MVC learning app with transparent developer panel"
+
+# Custom instructions for all agents working on this project
+instructions: |
+  # Educational MVC App - Agent Guidelines
+
+  You are implementing the Educational MVC App, an interactive learning tool for teaching MVC architecture.
+
+  ## Critical Requirements
+
+  1. **Follow IMPLEMENTATION_PLAN.md religiously**
+     - Each feature has specific requirements and test steps
+     - Don't improvise beyond the stated requirements
+     - Keep features small and focused (30min-1hr each)
+
+  2. **Commit Workflow** (REQUIRED)
+     - Complete feature fully before committing
+     - Test it yourself first
+     - Use format: `feat: [brief description]` or `fix: [brief description]`
+     - Example: `feat: implement User model with validation`
+     - Ask user to test using provided test steps before proceeding
+
+  3. **Architecture - No Magic Principle**
+     - Use PROJECT_BRIEF.md as source of truth
+     - MVC separation must be crystal clear
+     - Code must be inspectable and understandable
+     - Add comments explaining MVC flow
+     - Document all methods with docstrings
+
+  4. **Code Documentation Style**
+     - Follow PROJECT_BRIEF.md lines 232-261 for comment style
+     - Use ✅ DO and ⚠️ DON'T pattern in comments
+     - Include "Lesson X covers this" comments where applicable
+     - Every Python file needs module docstring with MVC role
+
+  5. **Ask Before Deciding**
+     - If architectural choice unclear → ask user
+     - If multiple valid approaches → ask user
+     - Never guess on where logic belongs (Model vs Controller)
+
+  6. **When You Finish**
+     - Commit with proper message
+     - Ask: "Feature X is complete. Please test by [specific steps]. Let me know if it works or if you encounter issues."
+     - Do NOT proceed to next feature until user confirms success
+
+  ## Reference Files
+  - PROJECT_BRIEF.md - Project vision, design decisions, data model
+  - IMPLEMENTATION_PLAN.md - 35 features, detailed prompts, test steps
+  - implementation-scripts/copy_feature.py - Extract feature details
+
+# Git hooks for commit validation
+hooks:
+  pre-commit: |
+    #!/bin/bash
+    # Validate commit message format
+    # Expected format: feat: description or fix: description
+
+    commit_msg_file=$1
+    commit_msg=$(cat "$commit_msg_file")
+
+    # Check if message starts with feat: or fix:
+    if ! [[ $commit_msg =~ ^(feat|fix|docs|test|chore|refactor): ]]; then
+      echo "❌ Commit message format invalid!"
+      echo ""
+      echo "Expected format:"
+      echo "  feat: [description]"
+      echo "  fix: [description]"
+      echo "  docs: [description]"
+      echo "  test: [description]"
+      echo ""
+      echo "Your message:"
+      echo "  $commit_msg"
+      echo ""
+      echo "Examples:"
+      echo "  feat: implement User model with validation"
+      echo "  fix: handle null assignee in Task model"
+      echo "  docs: add architecture documentation"
+      exit 1
+    fi
+
+    # Optional: Check message length (keep focused)
+    if [[ ${#commit_msg} -gt 100 ]]; then
+      echo "⚠️  Commit message is long (${#commit_msg} chars, recommended < 100)"
+    fi
+
+    exit 0
+
+  post-commit: |
+    #!/bin/bash
+    # Print helpful message after commit
+    echo "✅ Commit created successfully!"
+    echo ""
+    echo "Next steps:"
+    echo "1. Ask user to test the feature using provided test steps"
+    echo "2. Wait for user confirmation before implementing next feature"
+    echo "3. Run: python3 implementation-scripts/copy_feature.py --list"
+
+# Project settings
+settings:
+  # File patterns to exclude from searches and operations
+  exclude_patterns:
+    - __pycache__/
+    - "*.pyc"
+    - "*.db"
+    - ".env"
+    - "node_modules/"
+    - ".DS_Store"
+    - ".git/"
+    - "*.log"
+    - ".venv/"
+    - "venv/"
+
+  # Project structure documentation
+  structure:
+    backend:
+      - "app.py: Flask application entry point"
+      - "models/: Model layer (User, Task)"
+      - "controllers/: Controller layer (routes, orchestration)"
+      - "utils/: Decorators, logging, request tracking"
+      - "database/: SQLite connection, schema, seed data"
+      - "templates/: Jinja2 view templates"
+
+    frontend:
+      - "public/index.html: Main HTML entry"
+      - "public/css/: Stylesheets"
+      - "public/js/: Client-side JavaScript"
+
+    project_files:
+      - "IMPLEMENTATION_PLAN.md: Feature breakdown and prompts"
+      - "PROJECT_BRIEF.md: Project vision and design decisions"
+      - "package.json: npm scripts and metadata"
+      - "requirements.txt: Python dependencies"
+      - "docker-compose.yml: Docker orchestration"
+
+# Custom commands for agents (optional, can be expanded)
+commands:
+  plan:
+    description: "Show available features from implementation plan"
+    command: "python3 implementation-scripts/copy_feature.py --list"
+
+  get-feature:
+    description: "Extract a specific feature (usage: /get-feature 1.5)"
+    command: "python3 implementation-scripts/copy_feature.py"
