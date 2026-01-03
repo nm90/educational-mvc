@@ -217,6 +217,10 @@ def create():
     """
     # Extract form data from request
     # Works with both HTML forms (request.form) and JSON (request.get_json)
+    print(f"DEBUG: request.is_json = {request.is_json}")
+    print(f"DEBUG: request.content_type = {request.content_type}")
+    print(f"DEBUG: Accept header = {request.headers.get('Accept', 'NOT SET')}")
+
     if request.is_json:
         data = request.get_json()
         name = data.get('name', '').strip()
@@ -225,6 +229,9 @@ def create():
         name = request.form.get('name', '').strip()
         email = request.form.get('email', '').strip()
 
+    print(f"DEBUG: Extracted name={name}, email={email}")
+    print(f"DEBUG: wants_json() = {wants_json()}")
+
     try:
         # Call Model to create user (Model layer unchanged)
         # Model.create() validates and inserts into database
@@ -232,8 +239,10 @@ def create():
         user = User.create(name, email)
 
         # Success! Return appropriate response based on client preference
+        print(f"DEBUG: User created, wants_json={wants_json()}")
         if wants_json():
             # JSON mode: return user data with redirect URL
+            print("DEBUG: Returning JSON response")
             return success_response(
                 data={'user': user},
                 redirect=url_for('users.show', user_id=user['id'])
