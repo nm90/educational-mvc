@@ -216,9 +216,27 @@ def after_request(response):
                 response.set_data(modified_html)
             elif response_html.strip() == '':
                 # Empty response body (typical for redirects)
-                # Create minimal HTML with debug object so JS can read it before redirect
-                minimal_html = f'<html><head></head><body><script>window.__DEBUG__ = {debug_json};</script></body></html>'
+                # Create HTML with debug object + JavaScript redirect
+                # This gives the script time to execute BEFORE the redirect happens
+                redirect_location = response.headers.get('Location', '/')
+                minimal_html = f'''<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Redirecting...</title>
+</head>
+<body>
+<script>
+window.__DEBUG__ = {debug_json};
+// Give the script time to execute and save data before redirecting
+window.location = '{redirect_location}';
+</script>
+<p>Redirecting...</p>
+</body>
+</html>'''
                 response.set_data(minimal_html)
+                # Convert redirect to 200 OK since we're handling redirect via JS
+                response.status_code = 200
 
         except Exception as e:
             # If something goes wrong, don't break the response
