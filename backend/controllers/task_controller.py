@@ -46,7 +46,7 @@ Routes:
     POST /tasks/<id>/delete  - Delete task
 """
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, request, redirect, url_for, flash
 
 # Import Models
 # ✅ DO: Import all Models needed by this Controller
@@ -57,8 +57,8 @@ from backend.models.user import User
 # Import response helpers for dual-mode (HTML/JSON) support
 from backend.utils.response_helpers import wants_json, success_response, error_response
 
-# Import request tracking for developer panel
-from backend.utils.request_tracker import track_view_data
+# Import tracked template renderer for automatic view data tracking
+from backend.utils.request_tracker import tracked_render_template
 
 
 # ============================================================================
@@ -111,14 +111,10 @@ def index():
     # This prevents the N+1 query problem!
     tasks = Task.get_all(include_relations=True)
 
-    # Track view data for developer panel
-    # Allows the State Inspector tab to show what data reached the template
-    # Lesson 2 covers: how data flows View ← Controller ← Model
-    track_view_data({'tasks': tasks})
-
     # Pass data to View template for rendering
     # Controller decides WHAT to render, View decides HOW to render
-    return render_template('tasks/index.html', tasks=tasks)
+    # View data is automatically tracked by tracked_render_template
+    return tracked_render_template('tasks/index.html', tasks=tasks)
 
 
 # ============================================================================
@@ -163,10 +159,10 @@ def show(task_id):
     # Model returns None if task doesn't exist
     if not task:
         flash('Task not found', 'error')
-        return render_template('errors/404.html', message='Task not found'), 404
+        return tracked_render_template('errors/404.html', message='Task not found'), 404
 
     # Pass task data to View
-    return render_template('tasks/show.html', task=task)
+    return tracked_render_template('tasks/show.html', task=task)
 
 
 # ============================================================================
@@ -212,7 +208,7 @@ def new():
 
     # Render the form template with users for dropdowns
     # No Task Model calls needed - just showing an empty form
-    return render_template('tasks/new.html', users=users)
+    return tracked_render_template('tasks/new.html', users=users)
 
 
 # ============================================================================
@@ -282,7 +278,7 @@ def create():
         else:
             flash(error_msg, 'error')
             users = User.get_all()
-            return render_template('tasks/new.html', users=users,
+            return tracked_render_template('tasks/new.html', users=users,
                                  title=title, description=description,
                                  status=status, priority=priority)
 
@@ -312,7 +308,7 @@ def create():
             flash(str(e), 'error')
             # Re-load users for dropdowns when re-rendering form
             users = User.get_all()
-            return render_template('tasks/new.html', users=users,
+            return tracked_render_template('tasks/new.html', users=users,
                                  title=title, description=description,
                                  status=status, priority=priority,
                                  owner_id=owner_id, assignee_id=assignee_id)
@@ -368,14 +364,14 @@ def edit(task_id):
     # Handle not found
     if not task:
         flash('Task not found', 'error')
-        return render_template('errors/404.html', message='Task not found'), 404
+        return tracked_render_template('errors/404.html', message='Task not found'), 404
 
     # Load all users for owner and assignee dropdowns
     # Controller coordinates multiple models (Task + User)
     users = User.get_all()
 
     # Render edit form with current task data and users for dropdowns
-    return render_template('tasks/edit.html', task=task, users=users)
+    return tracked_render_template('tasks/edit.html', task=task, users=users)
 
 
 # ============================================================================
@@ -441,7 +437,7 @@ def update(task_id):
         else:
             flash(error_msg, 'error')
             users = User.get_all()
-            return render_template('tasks/edit.html', task={
+            return tracked_render_template('tasks/edit.html', task={
                 'id': task_id,
                 'title': title,
                 'description': description,
@@ -467,7 +463,7 @@ def update(task_id):
                 )
             else:
                 flash('Task not found', 'error')
-                return render_template('errors/404.html', message='Task not found'), 404
+                return tracked_render_template('errors/404.html', message='Task not found'), 404
 
         # Success! Return appropriate response based on client preference
         if wants_json():
@@ -492,7 +488,7 @@ def update(task_id):
             # Re-load users for dropdowns when re-rendering form
             users = User.get_all()
             # Pass the submitted values back to re-fill the form
-            return render_template('tasks/edit.html', task={
+            return tracked_render_template('tasks/edit.html', task={
                 'id': task_id,
                 'title': title,
                 'description': description,

@@ -31,7 +31,7 @@ Important:
 import uuid
 import json
 import time
-from flask import g, request, after_this_request
+from flask import g, request, after_this_request, render_template as flask_render_template
 from functools import wraps
 
 
@@ -361,6 +361,48 @@ def track_view_data(data):
     # Store view data
     # Note: We store the data as-is; JSON serialization happens in after_request
     g.tracking['view_data'] = data
+
+
+def tracked_render_template(template_name, **context):
+    """
+    Render a template and automatically track the context data passed to it.
+
+    This is a wrapper around Flask's render_template that automatically calls
+    track_view_data() with the context variables before rendering.
+
+    Usage in controllers:
+    @users_bp.route('/')
+    def index():
+        users = User.get_all()
+        # Automatically tracks context before rendering
+        return tracked_render_template('users/index.html', users=users)
+
+    Args:
+        template_name (str): Name of the template file (e.g., 'users/index.html')
+        **context: All context variables passed to the template
+
+    What it does:
+    1. Automatically calls track_view_data(context) to log what data the controller passed
+    2. Calls Flask's render_template() with the same arguments
+    3. Returns the rendered template
+
+    Benefits of using this:
+    - No need to manually call track_view_data() in every controller
+    - DRY - single place to track all template rendering
+    - Ensures view data is always captured for the developer panel
+    - Makes controller code cleaner
+
+    Dev Panel use:
+    - All context data automatically appears in State Inspector tab
+    - Shows exactly what variables were available to the template
+    - Tracks the data flow from Controller → View
+    """
+    # Automatically track the context data being passed to the template
+    # This allows the State Inspector tab to show what data reached the view
+    track_view_data(context)
+
+    # Render the template with the original Flask function
+    return flask_render_template(template_name, **context)
 
 
 # ============================================================================

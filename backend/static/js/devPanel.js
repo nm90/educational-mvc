@@ -342,6 +342,11 @@ class DevPanel {
                 if (this.currentTab === 'network') {
                     this.attachNetworkInspectorListeners();
                 }
+
+                // Attach listeners for Flow Diagram tab
+                if (this.currentTab === 'flow') {
+                    this.attachFlowDiagramListeners();
+                }
             });
         }
     }
@@ -370,6 +375,10 @@ class DevPanel {
 
         if (tabName === 'network') {
             return this.renderNetworkInspector();
+        }
+
+        if (tabName === 'flow') {
+            return this.renderFlowDiagram();
         }
 
         const tabLabels = {
@@ -1674,6 +1683,380 @@ class DevPanel {
         `;
 
         return html;
+    }
+
+    /**
+     * renderFlowDiagram() - Animated visual representation of MVC request flow
+     *
+     * MVC Flow:
+     * - Shows visual diagram of request traveling through MVC layers
+     * - Browser → Controller → Model → Database → Model → Controller → View → Browser
+     * - Each phase highlighted with timing information
+     * - Animated flow that plays sequentially through each phase
+     * - Interactive controls for loop, speed adjustment
+     *
+     * Features:
+     * - SVG diagram with boxes for each layer
+     * - Animated arrows showing data flow
+     * - Timing breakdown for each phase
+     * - Play/pause/reset animation controls
+     * - Speed control (1x, 2x, 5x)
+     * - Loop animation option
+     * - Phase highlighting as animation progresses
+     *
+     * Lesson Reference:
+     * - Lesson 1: Understanding MVC pattern visually
+     * - Lesson 2: Seeing data flow through all MVC layers
+     */
+    renderFlowDiagram() {
+        const timing = this.debugData.timing || {};
+        const method_calls = this.debugData.method_calls || [];
+        const db_queries = this.debugData.db_queries || [];
+
+        // Calculate timing for each phase
+        const phases = this.calculateFlowPhases(timing, method_calls, db_queries);
+        const totalTime = phases.reduce((sum, p) => sum + p.duration, 0);
+
+        // Create header with timing summary
+        let html = `
+            <div class="flow-diagram-container">
+                <div class="flow-diagram-header">
+                    <h3 style="margin: 0 0 10px 0; color: #4ec9b0;">MVC Request Flow</h3>
+                    <div class="flow-timing-summary">
+                        <div style="color: #d4d4d4; margin-bottom: 8px;">
+                            <strong>Total Request: ${totalTime.toFixed(1)}ms</strong>
+                        </div>
+                        <div class="flow-phase-breakdown">
+        `;
+
+        // Show timing for each phase
+        let phaseNumber = 1;
+        phases.forEach((phase, index) => {
+            html += `
+                            <div class="flow-phase-timing" style="font-size: 11px; line-height: 1.8;">
+                                <span style="color: #858585;">${phaseNumber}.</span>
+                                <span style="color: #9cdcfe;">${phase.name}</span>
+                                <span style="color: #b5cea8;">${phase.duration.toFixed(1)}ms</span>
+                            </div>
+            `;
+            phaseNumber++;
+        });
+
+        html += `
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flow-diagram-controls">
+                    <button class="flow-control-btn" id="flow-play-btn" title="Play animation">▶ Play</button>
+                    <button class="flow-control-btn" id="flow-pause-btn" title="Pause animation">⏸ Pause</button>
+                    <button class="flow-control-btn" id="flow-reset-btn" title="Reset animation">↻ Reset</button>
+
+                    <div class="flow-control-separator"></div>
+
+                    <select id="flow-speed-select" class="flow-control-select" title="Animation speed">
+                        <option value="1">Speed: 1x</option>
+                        <option value="2">Speed: 2x</option>
+                        <option value="5">Speed: 5x</option>
+                    </select>
+
+                    <label style="display: inline-flex; align-items: center; margin-left: 10px; font-size: 11px; color: #d4d4d4;">
+                        <input type="checkbox" id="flow-loop-checkbox" />
+                        <span style="margin-left: 5px;">Loop</span>
+                    </label>
+                </div>
+
+                <div class="flow-diagram-svg-container" id="flow-diagram-container">
+                    ${this.createFlowDiagramSVG(phases)}
+                </div>
+            </div>
+        `;
+
+        return html;
+    }
+
+    /**
+     * calculateFlowPhases(timing, method_calls, db_queries) - Break down request into phases
+     *
+     * Identifies timing for each MVC phase:
+     * 1. Request received by browser
+     * 2. Controller processing
+     * 3. Model methods
+     * 4. Database queries
+     * 5. View rendering
+     * 6. Response sent
+     *
+     * @param {Object} timing - Timing object from debug data
+     * @param {Array} method_calls - Method call array
+     * @param {Array} db_queries - Database query array
+     * @returns {Array} Array of phase objects with name and duration
+     */
+    calculateFlowPhases(timing, method_calls, db_queries) {
+        // Default phase breakdown
+        const phases = [
+            { name: 'Request → Controller', duration: 0.5 },
+            { name: 'Controller Processing', duration: 0 },
+            { name: 'Model Methods', duration: 0 },
+            { name: 'Database Queries', duration: 0 },
+            { name: 'View Rendering', duration: 0 },
+            { name: 'Response → Browser', duration: 0.5 }
+        ];
+
+        // Calculate controller duration from method calls
+        const controllerCalls = method_calls.filter(c => this.getMethodLayer(c.method) === 'controller');
+        const controllerDuration = controllerCalls.reduce((sum, c) => sum + (c.duration || 0), 0);
+        if (controllerDuration > 0) phases[1].duration = controllerDuration;
+
+        // Calculate model duration
+        const modelCalls = method_calls.filter(c => this.getMethodLayer(c.method) === 'model');
+        const modelDuration = modelCalls.reduce((sum, c) => sum + (c.duration || 0), 0);
+        if (modelDuration > 0) phases[2].duration = modelDuration;
+
+        // Calculate database duration
+        const dbDuration = db_queries.reduce((sum, q) => sum + (q.duration_ms || 0), 0);
+        if (dbDuration > 0) phases[3].duration = dbDuration;
+
+        // View rendering - use remaining time or estimate
+        // If we have accurate timing, use it; otherwise estimate
+        if (timing.request_start && timing.request_end) {
+            const totalDuration = (timing.request_end - timing.request_start) * 1000;
+            const measuredDuration = controllerDuration + modelDuration + dbDuration;
+            phases[4].duration = Math.max(0, totalDuration - measuredDuration - 1);
+        } else {
+            phases[4].duration = 10; // Default estimate
+        }
+
+        return phases;
+    }
+
+    /**
+     * createFlowDiagramSVG(phases) - Create SVG visualization of MVC flow
+     *
+     * Draws:
+     * - Boxes for each layer (Browser, Controller, Model, Database, View)
+     * - Arrows showing flow direction
+     * - Animated dashed lines to show current flow
+     * - Color coding for each layer
+     *
+     * @param {Array} phases - Array of phase objects with name and duration
+     * @returns {string} SVG HTML string
+     */
+    createFlowDiagramSVG(phases) {
+        const boxWidth = 70;
+        const boxHeight = 50;
+        const boxSpacing = 95; // Space between box centers
+        const startX = 15;
+        const startY = 30;
+
+        // Define the flow layers and their properties
+        const layers = [
+            { label: '🌐\nBrowser', color: '#7fb3d5', phaseIndex: 0 },
+            { label: '⚙️\nController', color: '#4ec9b0', phaseIndex: 1 },
+            { label: '📊\nModel', color: '#569cd6', phaseIndex: 2 },
+            { label: '🗄️\nDatabase', color: '#d19a66', phaseIndex: 3 },
+            { label: '📊\nModel', color: '#569cd6', phaseIndex: -1 },  // Return phase
+            { label: '⚙️\nController', color: '#4ec9b0', phaseIndex: -1 },  // Return phase
+            { label: '👁️\nView', color: '#ce9178', phaseIndex: 4 },
+            { label: '🌐\nBrowser', color: '#7fb3d5', phaseIndex: 5 }
+        ];
+
+        let svg = `<svg class="flow-diagram-svg" viewBox="0 0 960 120" preserveAspectRatio="xMidYMid meet">`;
+
+        // Draw boxes and arrows
+        let xPos = startX;
+        for (let i = 0; i < layers.length; i++) {
+            const layer = layers[i];
+            const isDatabase = i === 3;
+
+            // Draw box
+            svg += `
+                <g class="flow-layer flow-layer-${i}" data-phase="${layer.phaseIndex}">
+                    <rect class="flow-box" x="${xPos}" y="${startY}" width="${boxWidth}" height="${boxHeight}"
+                          fill="${layer.color}" opacity="0.2" stroke="${layer.color}" stroke-width="2" rx="4"/>
+                    <text class="flow-label" x="${xPos + boxWidth/2}" y="${startY + boxHeight/2 + 6}"
+                          text-anchor="middle" font-size="11" fill="${layer.color}">${layer.label}</text>
+                </g>
+            `;
+
+            // Draw arrow to next layer (except for last layer)
+            if (i < layers.length - 1) {
+                const nextX = xPos + boxSpacing;
+                svg += `
+                    <line class="flow-arrow flow-arrow-${i}" x1="${xPos + boxWidth}" y1="${startY + boxHeight/2}"
+                          x2="${nextX}" y2="${startY + boxHeight/2}" stroke="currentColor" stroke-width="2"
+                          fill="none" marker-end="url(#arrowhead)"/>
+                    <text class="flow-arrow-label" x="${(xPos + boxWidth + nextX) / 2}" y="${startY + boxHeight/2 - 8}"
+                          text-anchor="middle" font-size="9" fill="#858585">${phases[layer.phaseIndex]?.duration.toFixed(1) || '0'}ms</text>
+                `;
+            }
+
+            xPos += boxSpacing;
+        }
+
+        // Arrow marker definition
+        svg += `
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                    <polygon points="0 0, 10 3, 0 6" fill="#858585" />
+                </marker>
+            </defs>
+        </svg>`;
+
+        return svg;
+    }
+
+    /**
+     * attachFlowDiagramListeners() - Attach event handlers for Flow Diagram animation
+     *
+     * Handles:
+     * - Play/pause/reset animation buttons
+     * - Speed selection dropdown
+     * - Loop checkbox
+     */
+    attachFlowDiagramListeners() {
+        const playBtn = document.getElementById('flow-play-btn');
+        const pauseBtn = document.getElementById('flow-pause-btn');
+        const resetBtn = document.getElementById('flow-reset-btn');
+        const speedSelect = document.getElementById('flow-speed-select');
+        const loopCheckbox = document.getElementById('flow-loop-checkbox');
+        const container = document.getElementById('flow-diagram-container');
+
+        if (!container) return;
+
+        // Store animation state
+        if (!this.flowAnimation) {
+            this.flowAnimation = {
+                isPlaying: false,
+                currentPhase: -1,
+                speed: 1,
+                loop: false,
+                animationId: null
+            };
+        }
+
+        // Play button
+        if (playBtn) {
+            playBtn.addEventListener('click', () => {
+                this.flowAnimation.isPlaying = true;
+                playBtn.style.opacity = '0.5';
+                pauseBtn.style.opacity = '1';
+                this.playFlowAnimation();
+            });
+        }
+
+        // Pause button
+        if (pauseBtn) {
+            pauseBtn.addEventListener('click', () => {
+                this.flowAnimation.isPlaying = false;
+                playBtn.style.opacity = '1';
+                pauseBtn.style.opacity = '0.5';
+                if (this.flowAnimation.animationId) {
+                    cancelAnimationFrame(this.flowAnimation.animationId);
+                }
+            });
+        }
+
+        // Reset button
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                this.flowAnimation.currentPhase = -1;
+                this.flowAnimation.isPlaying = false;
+                playBtn.style.opacity = '1';
+                pauseBtn.style.opacity = '0.5';
+
+                // Reset all layers
+                const layers = container.querySelectorAll('.flow-layer');
+                layers.forEach(layer => {
+                    layer.classList.remove('active', 'completed');
+                });
+
+                if (this.flowAnimation.animationId) {
+                    cancelAnimationFrame(this.flowAnimation.animationId);
+                }
+            });
+        }
+
+        // Speed select
+        if (speedSelect) {
+            speedSelect.addEventListener('change', (e) => {
+                this.flowAnimation.speed = parseFloat(e.target.value);
+            });
+        }
+
+        // Loop checkbox
+        if (loopCheckbox) {
+            loopCheckbox.addEventListener('change', (e) => {
+                this.flowAnimation.loop = e.target.checked;
+            });
+        }
+
+        // Auto-play when tab opens
+        this.playFlowAnimation();
+    }
+
+    /**
+     * playFlowAnimation() - Execute flow animation sequence
+     *
+     * Animates through each phase, highlighting layers sequentially
+     * with timing delays. Respects speed setting and loop option.
+     */
+    playFlowAnimation() {
+        if (!this.flowAnimation) return;
+
+        const container = document.getElementById('flow-diagram-container');
+        if (!container) return;
+
+        const layers = container.querySelectorAll('.flow-layer');
+        const phaseSequence = [0, 1, 2, 3, 4, 5, 6, 7]; // Layer indices to animate through
+        let sequenceIndex = 0;
+
+        const animateNextPhase = () => {
+            if (!this.flowAnimation.isPlaying) return;
+
+            // Remove previous highlighting
+            layers.forEach((layer, index) => {
+                if (index === phaseSequence[sequenceIndex - 1]) {
+                    layer.classList.remove('active');
+                    layer.classList.add('completed');
+                }
+            });
+
+            // Highlight current layer
+            if (sequenceIndex < phaseSequence.length) {
+                const currentLayerIndex = phaseSequence[sequenceIndex];
+                if (layers[currentLayerIndex]) {
+                    layers[currentLayerIndex].classList.add('active');
+                }
+
+                sequenceIndex++;
+
+                // Calculate delay based on phase timing (from timing summary)
+                // Use a base delay and multiply by speed factor
+                let delay = 400; // Base delay in ms
+                delay = Math.max(100, delay / this.flowAnimation.speed);
+
+                this.flowAnimation.animationId = setTimeout(animateNextPhase, delay);
+            } else {
+                // Animation sequence complete
+                if (this.flowAnimation.loop) {
+                    // Reset and restart
+                    layers.forEach(layer => layer.classList.remove('active', 'completed'));
+                    sequenceIndex = 0;
+                    this.flowAnimation.animationId = setTimeout(animateNextPhase, 500);
+                } else {
+                    // Stop animation
+                    this.flowAnimation.isPlaying = false;
+                    const playBtn = document.getElementById('flow-play-btn');
+                    const pauseBtn = document.getElementById('flow-pause-btn');
+                    if (playBtn) playBtn.style.opacity = '1';
+                    if (pauseBtn) pauseBtn.style.opacity = '0.5';
+                }
+            }
+        };
+
+        if (this.flowAnimation.isPlaying) {
+            animateNextPhase();
+        }
     }
 
     /**

@@ -40,7 +40,7 @@ Routes:
     POST /users/<id>/delete - Delete user
 """
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, request, redirect, url_for, flash
 
 # Import User Model
 # ✅ DO: Import Models at the top of Controller files
@@ -49,6 +49,9 @@ from backend.models.user import User
 
 # Import response helpers for dual-mode (HTML/JSON) support
 from backend.utils.response_helpers import wants_json, success_response, error_response
+
+# Import tracked template renderer for automatic view data tracking
+from backend.utils.request_tracker import tracked_render_template
 
 
 # ============================================================================
@@ -96,7 +99,7 @@ def index():
 
     # Pass data to View template for rendering
     # Controller decides WHAT to render, View decides HOW to render
-    return render_template('users/index.html', users=users)
+    return tracked_render_template('users/index.html', users=users)
 
 
 # ============================================================================
@@ -139,10 +142,10 @@ def show(user_id):
     # Model returns None if user doesn't exist
     if not user:
         flash('User not found', 'error')
-        return render_template('errors/404.html', message='User not found'), 404
+        return tracked_render_template('errors/404.html', message='User not found'), 404
 
     # Pass user data to View
-    return render_template('users/show.html', user=user)
+    return tracked_render_template('users/show.html', user=user)
 
 
 # ============================================================================
@@ -175,7 +178,7 @@ def new():
     """
     # Simply render the form template
     # No Model calls needed - just showing an empty form
-    return render_template('users/new.html')
+    return tracked_render_template('users/new.html')
 
 
 # ============================================================================
@@ -255,7 +258,7 @@ def create():
         else:
             # HTML mode: re-render form with error message and submitted data
             flash(str(e), 'error')
-            return render_template('users/new.html', name=name, email=email)
+            return tracked_render_template('users/new.html', name=name, email=email)
 
 
 # ============================================================================
@@ -299,10 +302,10 @@ def edit(user_id):
     # Handle not found
     if not user:
         flash('User not found', 'error')
-        return render_template('errors/404.html', message='User not found'), 404
+        return tracked_render_template('errors/404.html', message='User not found'), 404
 
     # Render edit form with current user data
-    return render_template('users/edit.html', user=user)
+    return tracked_render_template('users/edit.html', user=user)
 
 
 # ============================================================================
@@ -369,7 +372,7 @@ def update(user_id):
                 )
             else:
                 flash('User not found', 'error')
-                return render_template('errors/404.html', message='User not found'), 404
+                return tracked_render_template('errors/404.html', message='User not found'), 404
 
         # Success! Return appropriate response based on client preference
         if wants_json():
@@ -395,7 +398,7 @@ def update(user_id):
             # HTML mode: re-render form with error
             flash(str(e), 'error')
             # Pass the submitted values back to re-fill the form
-            return render_template('users/edit.html', user={
+            return tracked_render_template('users/edit.html', user={
                 'id': user_id,
                 'name': name,
                 'email': email
