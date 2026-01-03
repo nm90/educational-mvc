@@ -280,10 +280,94 @@ class LessonEngine {
      * @param {object} checkpoint - Checkpoint object with code requirements
      * @returns {boolean} - True if code is valid
      */
-    checkCodeCheckpoint(checkpoint) {
-        // Future implementation: validate user's code
-        console.log('Code checkpoint - not yet implemented');
-        return false;
+    async checkCodeCheckpoint(checkpoint) {
+        /**
+         * Validate code checkpoint by submitting to backend.
+         *
+         * MVC Flow:
+         * 1. Get code from textarea
+         * 2. POST to /lessons/<id>/checkpoint
+         * 3. Backend validates using CheckpointValidator
+         * 4. Show validation result in UI
+         * 5. Return pass/fail to control lesson progression
+         *
+         * Dev Panel Shows:
+         * - CheckpointValidator.validate_checkpoint() method call
+         * - Validation logic with args and return values
+         * - Execution time
+         */
+        const codeInput = document.getElementById('lesson-code-input');
+        if (!codeInput) {
+            console.error('Code input element not found');
+            return false;
+        }
+
+        const code = codeInput.value.trim();
+        if (!code) {
+            this.showValidationResult({
+                success: false,
+                data: {
+                    passed: false,
+                    message: 'Please enter some code before validating',
+                    errors: ['Code input is empty']
+                }
+            });
+            return false;
+        }
+
+        // Show loading state on submit button
+        const submitBtn = document.querySelector('.lesson-code-submit');
+        const originalText = submitBtn ? submitBtn.textContent : 'Validate Code';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Validating...';
+        }
+
+        try {
+            // POST code to backend for validation
+            const response = await fetch(`/lessons/${this.currentLesson.id}/checkpoint`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    checkpoint_id: `lesson_${this.currentLesson.id}_checkpoint`,
+                    code: code,
+                    lesson_id: this.currentLesson.id
+                })
+            });
+
+            const result = await response.json();
+
+            // Show validation result in UI
+            this.showValidationResult(result);
+
+            // Update dev panel if available
+            if (window.DevPanel && result.__DEBUG__) {
+                window.DevPanel.updateDebugData(result.__DEBUG__);
+            }
+
+            return result.data?.passed || false;
+
+        } catch (error) {
+            console.error('Checkpoint validation error:', error);
+            this.showValidationResult({
+                success: false,
+                data: {
+                    passed: false,
+                    message: 'Failed to validate code',
+                    errors: [error.message]
+                }
+            });
+            return false;
+        } finally {
+            // Restore button state
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        }
     }
 
     /**
@@ -669,32 +753,126 @@ class LessonEngine {
      * @returns {void}
      */
     renderCodeCheckpoint(checkpoint, container) {
+        /**
+         * Render code checkpoint UI with textarea and validation.
+         *
+         * Creates:
+         * - Instructions div
+         * - Textarea with code template (if provided)
+         * - Submit button for validation
+         * - Result container for feedback
+         */
         const codeDiv = document.createElement('div');
         codeDiv.className = 'lesson-code-checkpoint';
 
+        // Instructions
         const instructions = document.createElement('div');
         instructions.className = 'lesson-code-instructions';
         instructions.innerHTML = checkpoint.instructions;
 
+        // Code template (if provided)
+        let initialCode = '';
+        if (checkpoint.codeTemplate) {
+            initialCode = checkpoint.codeTemplate;
+        }
+
+        // Textarea for code input
         const textarea = document.createElement('textarea');
         textarea.className = 'lesson-code-input';
-        textarea.placeholder = checkpoint.placeholder || 'Write your code here...';
+        textarea.placeholder = 'Write your code here...';
         textarea.id = 'lesson-code-input';
+        textarea.rows = 15;
+        textarea.value = initialCode;
+        textarea.spellcheck = false;
 
+        // Submit button
         const submitBtn = document.createElement('button');
-        submitBtn.className = 'lesson-btn lesson-btn-secondary';
+        submitBtn.className = 'lesson-btn lesson-btn-secondary lesson-code-submit';
         submitBtn.textContent = 'Validate Code';
-        submitBtn.addEventListener('click', () => {
-            const code = textarea.value;
-            // TODO: Implement code validation logic based on checkpoint.validator
-            console.log('Code validation placeholder:', code);
+        submitBtn.addEventListener('click', async () => {
+            const passed = await this.checkCodeCheckpoint(checkpoint);
+            // Update next button state if checkpoint passed
+            if (passed) {
+                const nextBtn = document.getElementById('lesson-next-btn');
+                if (nextBtn) {
+                    nextBtn.disabled = false;
+                }
+            }
         });
+
+        // Validation result area (initially hidden)
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'lesson-validation-result';
+        resultDiv.id = 'lesson-validation-result';
 
         codeDiv.appendChild(instructions);
         codeDiv.appendChild(textarea);
         codeDiv.appendChild(submitBtn);
+        codeDiv.appendChild(resultDiv);
 
         container.appendChild(codeDiv);
+    }
+
+    /**
+     * Display validation result in UI.
+     *
+     * Shows:
+     * - Success/failure message
+     * - Error details
+     * - Hints for improvement
+     *
+     * @param {object} result - Validation result from backend
+     * @returns {void}
+     */
+    showValidationResult(result) {
+        const resultDiv = document.getElementById('lesson-validation-result');
+        if (!resultDiv) {
+            console.error('Validation result div not found');
+            return;
+        }
+
+        const data = result.data || {};
+        const passed = data.passed || false;
+
+        // Clear previous result
+        resultDiv.innerHTML = '';
+        resultDiv.className = 'lesson-validation-result';
+
+        // Add pass/fail class
+        if (passed) {
+            resultDiv.classList.add('success');
+        } else {
+            resultDiv.classList.add('error');
+        }
+
+        // Message
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'validation-message';
+        messageDiv.innerHTML = `<strong>${passed ? '✅' : '❌'} ${data.message}</strong>`;
+        resultDiv.appendChild(messageDiv);
+
+        // Errors
+        if (data.errors && data.errors.length > 0) {
+            const errorsDiv = document.createElement('div');
+            errorsDiv.className = 'validation-errors';
+            errorsDiv.innerHTML = '<strong>Issues:</strong><ul>' +
+                data.errors.map(err => `<li>${err}</li>`).join('') +
+                '</ul>';
+            resultDiv.appendChild(errorsDiv);
+        }
+
+        // Hints
+        if (data.hints && data.hints.length > 0) {
+            const hintsDiv = document.createElement('div');
+            hintsDiv.className = 'validation-hints';
+            hintsDiv.innerHTML = '<strong>💡 Hints:</strong><ul>' +
+                data.hints.map(hint => `<li>${hint}</li>`).join('') +
+                '</ul>';
+            resultDiv.appendChild(hintsDiv);
+        }
+
+        // Show the result
+        resultDiv.style.display = 'block';
     }
 
     /**

@@ -40,6 +40,7 @@ if __name__ == '__main__' or __package__ is None:
 # Controllers handle specific route groups and orchestrate between Models and Views
 from backend.controllers.user_controller import users_bp
 from backend.controllers.task_controller import tasks_bp
+from backend.controllers.lesson_controller import lessons_bp
 
 # Import Request Tracking Middleware
 # Middleware logs all method calls and database queries for the developer panel
@@ -102,6 +103,10 @@ app.register_blueprint(users_bp)
 # Register Task Controller - handles /tasks routes
 # Demonstrates multi-model orchestration (Task + User)
 app.register_blueprint(tasks_bp)
+
+# Register Lesson Controller - handles /lessons routes
+# Lesson system for tutorial mode and code checkpoints
+app.register_blueprint(lessons_bp)
 
 
 print("=" * 60)
