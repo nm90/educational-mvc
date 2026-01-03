@@ -30,6 +30,12 @@ class DevPanel {
         this.tabs = {};
         this.tabContents = {};
 
+        // Request history tracking
+        this.requestHistory = [];
+        this.currentRequestId = null;
+        this.viewingHistoryMode = false;
+        this.MAX_HISTORY_SIZE = 20;
+
         // Resize state
         this.isResizing = false;
         this.resizeStartX = 0;
@@ -40,6 +46,9 @@ class DevPanel {
         // Bind resize methods so event listeners can be properly removed
         this.boundHandleResize = (e) => this.handleResize(e);
         this.boundStopResize = () => this.stopResize();
+
+        // Initialize request history from sessionStorage
+        this.loadHistoryFromStorage();
     }
 
     /**
@@ -112,6 +121,11 @@ class DevPanel {
         header.appendChild(title);
         header.appendChild(closeBtn);
 
+        // Create request selector
+        const requestSelector = document.createElement('div');
+        requestSelector.id = 'request-selector-dropdown';
+        requestSelector.className = 'request-selector-dropdown';
+
         // Create tabs bar
         const tabsBar = document.createElement('div');
         tabsBar.className = 'dev-panel-tabs';
@@ -172,6 +186,7 @@ class DevPanel {
 
         // Assemble panel
         this.panelElement.appendChild(header);
+        this.panelElement.appendChild(requestSelector);
         this.panelElement.appendChild(tabsBar);
         this.panelElement.appendChild(contentArea);
         this.panelElement.appendChild(resizeHandle);
@@ -225,6 +240,13 @@ class DevPanel {
         if (window.__DEBUG__) {
             this.debugData = window.__DEBUG__;
             console.log('[DevPanel] Debug data loaded:', this.debugData);
+
+            // Save current request to history
+            this.saveRequestToHistory();
+
+            // Update request selector UI
+            this.updateRequestSelector();
+
             // Update current tab display
             this.updateCurrentTab();
         } else {
@@ -2077,6 +2099,298 @@ class DevPanel {
 
         this.switchTab(lastTab);
         this.restoreSize();
+    }
+
+    /**
+     * loadHistoryFromStorage() - Load request history from sessionStorage
+     *
+     * Called during constructor to restore history from previous requests
+     * in the same session. History is cleared when tab closes.
+     */
+    loadHistoryFromStorage() {
+        try {
+            const stored = sessionStorage.getItem('devPanel-requestHistory');
+            if (stored) {
+                this.requestHistory = JSON.parse(stored);
+                console.log('[DevPanel] Request history loaded from storage:', this.requestHistory.length, 'requests');
+            }
+        } catch (err) {
+            console.warn('[DevPanel] Failed to load request history from storage:', err);
+            this.requestHistory = [];
+        }
+    }
+
+    /**
+     * saveHistoryToStorage() - Save request history to sessionStorage
+     *
+     * Persists request history so it survives page reloads within same session.
+     * Cleared automatically when tab is closed.
+     */
+    saveHistoryToStorage() {
+        try {
+            sessionStorage.setItem('devPanel-requestHistory', JSON.stringify(this.requestHistory));
+        } catch (err) {
+            console.warn('[DevPanel] Failed to save request history to storage:', err);
+        }
+    }
+
+    /**
+     * saveRequestToHistory() - Save current request to history
+     *
+     * Called when new __DEBUG__ data is loaded.
+     * Stores:
+     * - Request ID
+     * - HTTP method
+     * - URL
+     * - Timestamp
+     * - Full debug data
+     * - Summary info (method call count, query count, etc.)
+     *
+     * Limits history to MAX_HISTORY_SIZE (20) items, removing oldest first.
+     */
+    saveRequestToHistory() {
+        if (!this.debugData || !this.debugData.request_info) {
+            return;
+        }
+
+        const requestInfo = this.debugData.request_info;
+        const requestId = requestInfo.request_id || this.debugData.request_id;
+
+        if (!requestId) {
+            console.warn('[DevPanel] No request_id found in debug data, skipping history save');
+            return;
+        }
+
+        // Don't save duplicate request IDs (same request)
+        if (this.currentRequestId === requestId) {
+            return;
+        }
+
+        this.currentRequestId = requestId;
+
+        // Create history entry
+        const historyEntry = {
+            request_id: requestId,
+            method: requestInfo.method || 'GET',
+            url: requestInfo.url || '/',
+            timestamp: requestInfo.timestamp || Date.now() / 1000,
+            debugData: JSON.parse(JSON.stringify(this.debugData)), // Deep copy
+            summary: {
+                methodCallCount: (this.debugData.method_calls || []).length,
+                queryCount: (this.debugData.db_queries || []).length,
+                status: requestInfo.status || 200,
+                duration_ms: (this.debugData.timing?.request_end - this.debugData.timing?.request_start) * 1000 || 0
+            }
+        };
+
+        // Add to history (at beginning, most recent first)
+        this.requestHistory.unshift(historyEntry);
+
+        // Trim to MAX_HISTORY_SIZE
+        if (this.requestHistory.length > this.MAX_HISTORY_SIZE) {
+            this.requestHistory = this.requestHistory.slice(0, this.MAX_HISTORY_SIZE);
+        }
+
+        // Save to storage
+        this.saveHistoryToStorage();
+
+        // Set viewing mode to current
+        this.viewingHistoryMode = false;
+
+        console.log('[DevPanel] Request saved to history. History size:', this.requestHistory.length);
+    }
+
+    /**
+     * selectRequest(requestId) - Load and display a historical request
+     *
+     * When user clicks a previous request in the selector, this loads that
+     * request's debug data and updates all tabs to show historical data.
+     * Shows "Viewing request from X ago" indicator.
+     *
+     * @param {string} requestId - The request_id to load
+     */
+    selectRequest(requestId) {
+        // Find the request in history
+        const historyEntry = this.requestHistory.find(r => r.request_id === requestId);
+        if (!historyEntry) {
+            console.warn('[DevPanel] Request not found in history:', requestId);
+            return;
+        }
+
+        // Load the historical debug data
+        this.debugData = historyEntry.debugData;
+        this.viewingHistoryMode = true;
+        this.currentRequestId = requestId;
+
+        // Update all UI elements
+        this.updateRequestSelector();
+        this.updateCurrentTab();
+
+        console.log('[DevPanel] Loaded historical request:', requestId);
+    }
+
+    /**
+     * updateRequestSelector() - Render and update the request selector dropdown
+     *
+     * Displays:
+     * - Current request indicator
+     * - List of recent requests (up to 20)
+     * - Each with method, url, timestamp, and summary info
+     * - Color-coded by HTTP method
+     * - Clear history button
+     */
+    updateRequestSelector() {
+        const selectorContainer = document.getElementById('request-selector-dropdown');
+        if (!selectorContainer) return;
+
+        let html = '';
+
+        // Header showing current status
+        const currentReq = this.requestHistory[0];
+        if (currentReq) {
+            const timeAgo = this.getTimeAgoString(currentReq.timestamp);
+            if (this.viewingHistoryMode) {
+                html += `<div class="request-selector-status">📋 Viewing history (${timeAgo})</div>`;
+            } else {
+                html += `<div class="request-selector-status">● Current: ${currentReq.method} ${currentReq.url}</div>`;
+            }
+        }
+
+        // List of requests
+        html += '<div class="request-list">';
+
+        if (this.requestHistory.length === 0) {
+            html += '<div class="request-list-empty">No requests recorded</div>';
+        } else {
+            this.requestHistory.forEach((req, index) => {
+                const isCurrentRequest = index === 0 && !this.viewingHistoryMode;
+                const isSelected = req.request_id === this.currentRequestId;
+                const methodColor = this.getMethodColor(req.method);
+                const timeAgo = this.getTimeAgoString(req.timestamp);
+
+                html += `
+                    <button
+                        class="request-item ${isSelected ? 'selected' : ''} ${isCurrentRequest ? 'current' : ''}"
+                        data-request-id="${req.request_id}"
+                        title="Click to view request details"
+                    >
+                        <span class="request-method" style="color: ${methodColor};">${req.method}</span>
+                        <span class="request-url">${req.url}</span>
+                        <span class="request-time">${timeAgo}</span>
+                        <span class="request-summary">
+                            ${req.summary.methodCallCount} calls • ${req.summary.queryCount} queries • ${req.summary.duration_ms.toFixed(0)}ms
+                        </span>
+                    </button>
+                `;
+            });
+        }
+
+        html += '</div>';
+
+        // Clear history button
+        if (this.requestHistory.length > 0) {
+            html += `
+                <div class="request-selector-footer">
+                    <button class="request-clear-btn" id="request-clear-history-btn">
+                        🗑️ Clear History
+                    </button>
+                </div>
+            `;
+        }
+
+        selectorContainer.innerHTML = html;
+
+        // Attach event listeners
+        requestAnimationFrame(() => {
+            this.attachRequestSelectorListeners();
+        });
+    }
+
+    /**
+     * attachRequestSelectorListeners() - Attach event handlers to request selector
+     */
+    attachRequestSelectorListeners() {
+        // Request item click handlers
+        const requestItems = document.querySelectorAll('.request-item');
+        requestItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                const requestId = item.getAttribute('data-request-id');
+                this.selectRequest(requestId);
+            });
+        });
+
+        // Clear history button
+        const clearBtn = document.getElementById('request-clear-history-btn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (confirm('Clear all request history? This cannot be undone.')) {
+                    this.clearRequestHistory();
+                }
+            });
+        }
+    }
+
+    /**
+     * clearRequestHistory() - Clear all request history
+     *
+     * Called when user clicks "Clear History" button with confirmation.
+     * Resets to current request after clearing.
+     */
+    clearRequestHistory() {
+        this.requestHistory = [];
+        this.viewingHistoryMode = false;
+        this.currentRequestId = null;
+
+        // Save empty history
+        this.saveHistoryToStorage();
+
+        // Update UI
+        this.updateRequestSelector();
+        this.updateCurrentTab();
+
+        console.log('[DevPanel] Request history cleared');
+    }
+
+    /**
+     * getMethodColor(method) - Get color for HTTP method badge
+     *
+     * @param {string} method - HTTP method (GET, POST, PUT, DELETE, etc.)
+     * @returns {string} Hex color code
+     */
+    getMethodColor(method) {
+        const colors = {
+            'GET': '#4ec9b0',      // Teal
+            'POST': '#86c06c',     // Green
+            'PUT': '#d19a66',      // Orange
+            'DELETE': '#f48771',   // Red
+            'PATCH': '#9cdcfe',    // Blue
+            'HEAD': '#858585',     // Gray
+            'OPTIONS': '#858585'   // Gray
+        };
+        return colors[method?.toUpperCase()] || '#858585';
+    }
+
+    /**
+     * getTimeAgoString(timestamp) - Format timestamp as "X ago" string
+     *
+     * @param {number} timestamp - Unix timestamp in seconds
+     * @returns {string} Formatted time string (e.g., "2 min ago", "30 sec ago")
+     */
+    getTimeAgoString(timestamp) {
+        const now = Date.now() / 1000;
+        const secondsAgo = Math.floor(now - timestamp);
+
+        if (secondsAgo < 60) {
+            return secondsAgo + 's ago';
+        } else if (secondsAgo < 3600) {
+            const minutesAgo = Math.floor(secondsAgo / 60);
+            return minutesAgo + ' min ago';
+        } else {
+            const hoursAgo = Math.floor(secondsAgo / 3600);
+            return hoursAgo + 'h ago';
+        }
     }
 
     /**

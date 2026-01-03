@@ -137,8 +137,10 @@ def before_request():
 
     # Capture request information for Network Inspector
     g.tracking['request_info'] = {
+        'request_id': g.request_id,
         'method': request.method,
         'url': request.path,
+        'timestamp': time.time(),
         'headers': dict(request.headers)
     }
 
