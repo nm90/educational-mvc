@@ -210,7 +210,7 @@ def new():
 # ============================================================================
 # CREATE NEW TASK
 # ============================================================================
-@tasks_bp.route('/', methods=['POST'])
+@tasks_bp.route('/', methods=['POST'], strict_slashes=False)
 def create():
     """
     Create a new task from form data.
@@ -373,7 +373,7 @@ def edit(task_id):
 # ============================================================================
 # UPDATE TASK
 # ============================================================================
-@tasks_bp.route('/<int:task_id>/update', methods=['POST'])
+@tasks_bp.route('/<int:task_id>/update', methods=['POST'], strict_slashes=False)
 def update(task_id):
     """
     Update an existing task with form data.
@@ -498,7 +498,7 @@ def update(task_id):
 # ============================================================================
 # DELETE TASK
 # ============================================================================
-@tasks_bp.route('/<int:task_id>/delete', methods=['POST'])
+@tasks_bp.route('/<int:task_id>/delete', methods=['POST'], strict_slashes=False)
 def delete(task_id):
     """
     Delete a task.
