@@ -1,0 +1,80 @@
+<!--
+    User List Template - Displays all users
+
+    MVC Role: VIEW
+    - Receives 'users' list from Controller (UserController.index)
+    - Just displays the data in a table format
+    - Contains NO business logic - only presentation
+
+    Data from Controller:
+    - users: List of user dicts, each with: id, name, email, created_at
+
+    Learning Purpose:
+    - Shows how View receives data from Controller
+    - Demonstrates iteration over data with Jinja2 for loops
+    - Lesson 2 covers this data flow pattern
+
+    Note: The View doesn't know WHERE the data came from.
+    It just knows it received a 'users' list and displays it.
+-->
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Users</h1>
+
+    <!-- Create New User Button -->
+    <!--
+        Links to GET /users/new which shows the create form
+        View just provides navigation - Controller handles the route
+    -->
+    <a href="{{ url_for('users.new') }}" class="btn btn-primary">Create New User</a>
+
+    <!-- User Table -->
+    <!--
+        The 'users' variable comes from the Controller.
+        Controller called User.get_all() (Model) and passed results here.
+        View just iterates and displays - it doesn't query the database.
+    -->
+    {% if users %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                    <tr>
+                        <td>{{ user.name }}</td>
+                        <td>{{ user.email }}</td>
+                        <td class="text-muted">{{ user.created_at }}</td>
+                        <td class="actions">
+                            <!-- View link -->
+                            <a href="{{ url_for('users.show', user_id=user.id) }}">View</a>
+
+                            <!-- Edit link -->
+                            <a href="{{ url_for('users.edit', user_id=user.id) }}">Edit</a>
+
+                            <!-- Delete form -->
+                            <!--
+                                Delete uses a form with POST method because:
+                                - GET should be safe (no side effects)
+                                - DELETE modifies data, so we use POST
+                                Lesson 5 covers HTTP method semantics
+                            -->
+                            <form action="{{ url_for('users.delete', user_id=user.id) }}" method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <!-- Empty state when no users exist -->
+        <p class="text-muted mt-20">No users found. Create one to get started!</p>
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,67 @@
+<!--
+    User Detail Template - Shows a single user
+
+    MVC Role: VIEW
+    - Receives 'user' object from Controller (UserController.show)
+    - Displays user details in a readable format
+    - Contains NO business logic - only presentation
+
+    Data from Controller:
+    - user: Dict with: id, name, email, created_at
+
+    Learning Purpose:
+    - Shows how View receives a single object from Controller
+    - Demonstrates displaying object properties
+    - Lesson 2 covers this data flow pattern
+
+    Note: The Controller fetched this user via User.get_by_id() (Model).
+    The View doesn't know about the Model - it just displays what it receives.
+-->
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>User Details</h1>
+
+    <!-- User Information -->
+    <!--
+        The 'user' variable comes from the Controller.
+        Controller called User.get_by_id(id) (Model) and passed the result here.
+        View just displays the properties - it doesn't query the database.
+    -->
+    <table>
+        <tr>
+            <th style="width: 150px;">Name</th>
+            <td>{{ user.name }}</td>
+        </tr>
+        <tr>
+            <th>Email</th>
+            <td>{{ user.email }}</td>
+        </tr>
+        <tr>
+            <th>Created At</th>
+            <td class="text-muted">{{ user.created_at }}</td>
+        </tr>
+    </table>
+
+    <!-- Action Links -->
+    <!--
+        These links navigate to other Controller actions.
+        View provides navigation, Controller handles each route.
+    -->
+    <div class="mt-20">
+        <!-- Edit link - navigates to edit form -->
+        <a href="{{ url_for('users.edit', user_id=user.id) }}" class="btn btn-primary">Edit</a>
+
+        <!-- Delete form -->
+        <!--
+            Delete uses POST method because it modifies data.
+            Lesson 5 covers why we use POST for destructive actions.
+        -->
+        <form action="{{ url_for('users.delete', user_id=user.id) }}" method="POST" style="display: inline;">
+            <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">Delete</button>
+        </form>
+
+        <!-- Back to list link -->
+        <a href="{{ url_for('users.index') }}" class="btn btn-secondary">Back to List</a>
+    </div>
+{% endblock %}

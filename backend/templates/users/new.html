@@ -1,0 +1,73 @@
+<!--
+    Create User Form Template - Form for creating a new user
+
+    MVC Role: VIEW
+    - Displays a form for user input
+    - Form posts to Controller (POST /users)
+    - If validation fails, Controller re-renders this with error and previous values
+    - Contains NO validation logic - only presentation
+
+    Data from Controller (on validation error):
+    - name: Previously submitted name (to refill form)
+    - email: Previously submitted email (to refill form)
+    - Flash message with validation error
+
+    Learning Purpose:
+    - Shows how forms post to Controllers
+    - Demonstrates form re-population on validation errors
+    - Lesson 3 covers validation flow through Model
+
+    MVC Flow for form submission:
+    1. User fills form and clicks Submit
+    2. Browser POSTs to /users (Controller.create)
+    3. Controller extracts form data
+    4. Controller calls User.create() (Model)
+    5. Model validates:
+       - If valid: inserts to DB, Controller redirects to /users
+       - If invalid: Model raises ValueError, Controller re-renders this form with error
+-->
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Create New User</h1>
+
+    <!-- User Creation Form -->
+    <!--
+        Form submits to POST /users (UserController.create)
+        Controller will validate via Model, then redirect or show errors
+    -->
+    <form action="{{ url_for('users.index') }}" method="POST">
+        <!-- Name Field -->
+        <label for="name">Name</label>
+        <!--
+            value="{{ name or '' }}" repopulates the field if validation failed.
+            The Controller passes 'name' back when re-rendering after an error.
+        -->
+        <input type="text"
+               id="name"
+               name="name"
+               value="{{ name or '' }}"
+               required
+               placeholder="Enter user's name">
+
+        <!-- Email Field -->
+        <label for="email">Email</label>
+        <!--
+            Similar to name - repopulates on validation error.
+            required attribute provides client-side validation,
+            but Model also validates server-side (defense in depth).
+        -->
+        <input type="email"
+               id="email"
+               name="email"
+               value="{{ email or '' }}"
+               required
+               placeholder="Enter user's email">
+
+        <!-- Form Actions -->
+        <div class="mt-20">
+            <button type="submit" class="btn btn-primary">Create User</button>
+            <a href="{{ url_for('users.index') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+{% endblock %}

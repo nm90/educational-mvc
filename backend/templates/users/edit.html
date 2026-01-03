@@ -1,0 +1,78 @@
+<!--
+    Edit User Form Template - Form for updating an existing user
+
+    MVC Role: VIEW
+    - Receives 'user' object from Controller to pre-fill form
+    - Form posts to Controller (POST /users/<id>/update)
+    - If validation fails, Controller re-renders with error and submitted values
+    - Contains NO validation logic - only presentation
+
+    Data from Controller:
+    - user: Dict with current user data (id, name, email, created_at)
+      - On initial load: fetched via User.get_by_id()
+      - On validation error: contains submitted values
+
+    Learning Purpose:
+    - Shows how Controller passes existing data to pre-fill forms
+    - Demonstrates the edit/update pattern in MVC
+    - Lesson 5 covers update flow through Model
+
+    MVC Flow for form submission:
+    1. User modifies form and clicks Update
+    2. Browser POSTs to /users/<id>/update (Controller.update)
+    3. Controller extracts form data
+    4. Controller calls User.update() (Model)
+    5. Model validates:
+       - If valid: updates DB, Controller redirects to /users/<id>
+       - If invalid: Model raises ValueError, Controller re-renders with error
+-->
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Edit User</h1>
+
+    <!-- User Edit Form -->
+    <!--
+        Form submits to POST /users/<id>/update (UserController.update)
+        Pre-filled with current user data from Controller
+    -->
+    <form action="{{ url_for('users.update', user_id=user.id) }}" method="POST">
+        <!-- Name Field -->
+        <label for="name">Name</label>
+        <!--
+            Pre-filled with user.name from Controller.
+            If validation failed, this contains the submitted value.
+        -->
+        <input type="text"
+               id="name"
+               name="name"
+               value="{{ user.name }}"
+               required
+               placeholder="Enter user's name">
+
+        <!-- Email Field -->
+        <label for="email">Email</label>
+        <!--
+            Pre-filled with user.email from Controller.
+            required attribute provides client-side validation,
+            but Model also validates server-side.
+        -->
+        <input type="email"
+               id="email"
+               name="email"
+               value="{{ user.email }}"
+               required
+               placeholder="Enter user's email">
+
+        <!-- Form Actions -->
+        <div class="mt-20">
+            <button type="submit" class="btn btn-primary">Update User</button>
+            <a href="{{ url_for('users.show', user_id=user.id) }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+
+    <!-- Back to List -->
+    <p class="mt-20">
+        <a href="{{ url_for('users.index') }}">&larr; Back to User List</a>
+    </p>
+{% endblock %}
