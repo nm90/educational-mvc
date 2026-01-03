@@ -1,0 +1,46 @@
+{
+  "id": 1,
+  "title": "Understand the MVC Pattern",
+  "description": "Learn what Model, View, and Controller mean and how they work together",
+  "estimated_time": "5 min",
+  "objectives": [
+    "Understand the role of each MVC component",
+    "See how data flows through the layers",
+    "Recognize where logic belongs in each layer"
+  ],
+  "steps": [
+    {
+      "id": "1-1",
+      "title": "What is a Model?",
+      "content": "The Model handles data and business logic. It represents your application's data (like User or Task) and contains all the validation and rules for that data.\n\nKey points:\n- Models define data structure\n- Models contain validation rules\n- Models know how to save/load from database\n- Models contain business logic\n\nIn our app, look at backend/models/ to see User.py and Task.py - these are Models.",
+      "hint": "Check the User.py file in backend/models/ to see an example of a Model",
+      "checkpoint": null
+    },
+    {
+      "id": "1-2",
+      "title": "What is a View?",
+      "content": "The View displays data to users. It's the presentation layer - how data looks on screen.\n\nKey points:\n- Views receive data from Controllers\n- Views format and display that data\n- Views should NOT contain business logic\n- Views are templates that render to HTML\n\nIn our app, we use Jinja2 templates stored in backend/templates/ - these are Views.",
+      "hint": "Look at backend/templates/tasks/index.html to see an example of a View",
+      "checkpoint": null
+    },
+    {
+      "id": "1-3",
+      "title": "What is a Controller?",
+      "content": "The Controller orchestrates between Models and Views. It handles requests, calls Models to get/save data, and tells Views what to display.\n\nKey points:\n- Controllers receive user requests (via routes)\n- Controllers call Model methods to get/save data\n- Controllers decide which View to render\n- Controllers pass data to Views\n\nIn our app, Controllers are in backend/controllers/ - like UserController.py and TaskController.py",
+      "hint": "See backend/controllers/task_controller.py to understand how a Controller orchestrates the flow",
+      "checkpoint": null
+    },
+    {
+      "id": "1-4",
+      "title": "How Does MVC Flow Work?",
+      "content": "Here's the complete flow:\n\n1. User interacts with View (clicks button, submits form)\n2. View sends request to Controller\n3. Controller receives request\n4. Controller calls Model methods (validate, save, load, etc)\n5. Model performs business logic and database operations\n6. Model returns data to Controller\n7. Controller passes data to View\n8. View renders HTML with that data\n9. View sends response back to user\n\nThis separation keeps concerns isolated:\n- Model: knows about data rules\n- Controller: knows how to coordinate\n- View: knows how to display\n\nWhen you open the Developer Panel, you'll see this flow happen in real-time!",
+      "hint": "Notice how each layer has one responsibility - this is the key to MVC",
+      "checkpoint": {
+        "type": "quiz",
+        "question": "Which MVC layer handles validation rules?",
+        "options": ["Model", "View", "Controller"],
+        "correct": "Model"
+      }
+    }
+  ]
+}

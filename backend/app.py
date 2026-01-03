@@ -175,6 +175,48 @@ init_database()
 
 
 # ============================================================================
+# STATIC FILES CONFIGURATION
+# ============================================================================
+# Serve lesson JSON files from /lessons/ directory
+# This allows the LessonEngine to fetch lesson data via fetch() calls
+
+@app.route('/lessons/<path:filename>')
+def serve_lesson(filename):
+    """
+    Serve lesson JSON files from the lessons directory.
+
+    MVC Role: Data Provider
+    - Returns lesson JSON files for LessonEngine to load
+    - Part of the lesson system for Tutorial Mode
+
+    Learning Purpose:
+    - Shows how static files are served from Flask
+    - Demonstrates server providing JSON data to client
+    - Part of the lesson loading infrastructure
+
+    @param {string} filename - Name of lesson file (e.g., 'lesson-1.json')
+    @returns {json} - Lesson data from JSON file
+    """
+    import os
+    from flask import send_file
+
+    lessons_dir = os.path.join(os.path.dirname(__file__), '..', 'lessons')
+    file_path = os.path.join(lessons_dir, filename)
+
+    # Security: Prevent directory traversal attacks
+    # Ensure the requested file is within the lessons directory
+    if not os.path.abspath(file_path).startswith(os.path.abspath(lessons_dir)):
+        return jsonify({"error": "Invalid file path"}), 403
+
+    # Check if file exists
+    if not os.path.exists(file_path):
+        return jsonify({"error": f"Lesson file not found: {filename}"}), 404
+
+    # Serve JSON file
+    return send_file(file_path, mimetype='application/json')
+
+
+# ============================================================================
 # BASIC ROUTES
 # ============================================================================
 # Placeholder routes until controllers are implemented
