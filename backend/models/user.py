@@ -22,6 +22,7 @@ Design Notes:
 import re
 from typing import Dict, List, Optional
 from backend.database.connection import execute_query
+from backend.utils.decorators import log_method_call
 
 
 class User:
@@ -42,6 +43,7 @@ class User:
     EMAIL_PATTERN = r'^[\w\.-]+@[\w\.-]+\.\w+$'
 
     @staticmethod
+    @log_method_call
     def validate(name: str, email: str) -> None:
         """
         Validate user data before database operations.
@@ -87,6 +89,7 @@ class User:
             raise ValueError(f"Email format invalid: {email}")
 
     @staticmethod
+    @log_method_call
     def create(name: str, email: str) -> Dict[str, any]:
         """
         Create a new user in the database.
@@ -137,6 +140,7 @@ class User:
         return User.get_by_id(user_id)
 
     @staticmethod
+    @log_method_call
     def get_by_id(user_id: int) -> Optional[Dict[str, any]]:
         """
         Fetch a user by their ID.
@@ -170,6 +174,7 @@ class User:
         return execute_query(query, (user_id,), fetch_one=True)
 
     @staticmethod
+    @log_method_call
     def get_all() -> List[Dict[str, any]]:
         """
         Fetch all users from the database.
@@ -200,6 +205,7 @@ class User:
         return result if result else []
 
     @staticmethod
+    @log_method_call
     def update(user_id: int, name: str, email: str) -> Optional[Dict[str, any]]:
         """
         Update an existing user's information.
@@ -253,6 +259,7 @@ class User:
         return User.get_by_id(user_id)
 
     @staticmethod
+    @log_method_call
     def delete(user_id: int) -> bool:
         """
         Delete a user from the database.

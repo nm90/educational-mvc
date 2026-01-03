@@ -25,6 +25,7 @@ Design Notes:
 from typing import Dict, List, Optional
 from datetime import datetime
 from backend.database.connection import execute_query
+from backend.utils.decorators import log_method_call
 
 
 class Task:
@@ -55,6 +56,7 @@ class Task:
     VALID_PRIORITIES = ['low', 'medium', 'high']
 
     @staticmethod
+    @log_method_call
     def validate(title: str, description: str, status: str, priority: str,
                  owner_id: int, assignee_id: Optional[int] = None) -> None:
         """
@@ -123,6 +125,7 @@ class Task:
                 raise ValueError(f"Assignee user with ID {assignee_id} does not exist")
 
     @staticmethod
+    @log_method_call
     def create(title: str, description: str, status: str, priority: str,
                owner_id: int, assignee_id: Optional[int] = None) -> Dict[str, any]:
         """
@@ -185,6 +188,7 @@ class Task:
         return Task.get_by_id(task_id)
 
     @staticmethod
+    @log_method_call
     def get_by_id(task_id: int, include_relations: bool = False) -> Optional[Dict[str, any]]:
         """
         Fetch a task by its ID, optionally including related user data.
@@ -319,6 +323,7 @@ class Task:
             return task
 
     @staticmethod
+    @log_method_call
     def get_all(include_relations: bool = False) -> List[Dict[str, any]]:
         """
         Fetch all tasks from the database, optionally including related user data.
@@ -423,6 +428,7 @@ class Task:
             return tasks
 
     @staticmethod
+    @log_method_call
     def update(task_id: int, **kwargs) -> Optional[Dict[str, any]]:
         """
         Update an existing task's information.
@@ -513,6 +519,7 @@ class Task:
         return Task.get_by_id(task_id)
 
     @staticmethod
+    @log_method_call
     def delete(task_id: int) -> bool:
         """
         Delete a task from the database.
