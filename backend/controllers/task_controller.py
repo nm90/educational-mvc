@@ -57,6 +57,9 @@ from backend.models.user import User
 # Import response helpers for dual-mode (HTML/JSON) support
 from backend.utils.response_helpers import wants_json, success_response, error_response
 
+# Import request tracking for developer panel
+from backend.utils.request_tracker import track_view_data
+
 
 # ============================================================================
 # BLUEPRINT SETUP
@@ -107,6 +110,11 @@ def index():
     # Using include_relations=True to eagerly load owners/assignees
     # This prevents the N+1 query problem!
     tasks = Task.get_all(include_relations=True)
+
+    # Track view data for developer panel
+    # Allows the State Inspector tab to show what data reached the template
+    # Lesson 2 covers: how data flows View ← Controller ← Model
+    track_view_data({'tasks': tasks})
 
     # Pass data to View template for rendering
     # Controller decides WHAT to render, View decides HOW to render
