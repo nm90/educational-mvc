@@ -313,6 +313,11 @@ class DevPanel {
                 if (this.currentTab === 'database') {
                     this.attachDatabaseQueryListeners();
                 }
+
+                // Attach listeners for Network Inspector tab
+                if (this.currentTab === 'network') {
+                    this.attachNetworkInspectorListeners();
+                }
             });
         }
     }
@@ -321,11 +326,10 @@ class DevPanel {
      * renderTabContent(tabName) - Generate HTML for tab content
      *
      * Dispatches to appropriate render method based on tab type.
-     * Currently implements State Inspector, Method Calls, and Database Inspector.
+     * Currently implements State Inspector, Method Calls, Database Inspector, and Network Inspector.
      *
      * Future features:
      * - Flow: Animated flow diagram (View → Controller → Model → DB)
-     * - Network: List all HTTP requests with details
      */
     renderTabContent(tabName) {
         if (tabName === 'state') {
@@ -340,14 +344,16 @@ class DevPanel {
             return this.renderDatabaseQueries();
         }
 
+        if (tabName === 'network') {
+            return this.renderNetworkInspector();
+        }
+
         const tabLabels = {
-            'flow': 'Flow Diagram',
-            'network': 'Network Inspector'
+            'flow': 'Flow Diagram'
         };
 
         const tabDescriptions = {
-            'flow': 'Watch the request flow through MVC layers in real-time',
-            'network': 'Inspect all HTTP requests and responses'
+            'flow': 'Watch the request flow through MVC layers in real-time'
         };
 
         return `
@@ -1432,6 +1438,218 @@ class DevPanel {
                 node.style.display = 'none';
             }
         });
+    }
+
+    /**
+     * attachNetworkInspectorListeners() - Attach event handlers for Network Inspector
+     *
+     * Handles:
+     * - Collapsible button clicks to expand/collapse header sections
+     * - Toggle between showing and hiding headers
+     */
+    attachNetworkInspectorListeners() {
+        const collapsibleBtns = document.querySelectorAll('.network-collapsible-btn');
+
+        collapsibleBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.toggleNetworkSection(btn);
+            });
+
+            // Keyboard support: Space/Enter to toggle
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    this.toggleNetworkSection(btn);
+                }
+            });
+        });
+    }
+
+    /**
+     * toggleNetworkSection(btn) - Expand/collapse a network inspector section
+     *
+     * @param {HTMLElement} btn - The collapsible button element
+     */
+    toggleNetworkSection(btn) {
+        const sectionId = btn.getAttribute('data-section');
+        const contentDiv = document.getElementById(sectionId);
+
+        if (!contentDiv) return;
+
+        const isHidden = contentDiv.classList.contains('hidden');
+
+        if (isHidden) {
+            // Expand
+            contentDiv.classList.remove('hidden');
+            btn.classList.remove('collapsed');
+            btn.setAttribute('aria-expanded', 'true');
+        } else {
+            // Collapse
+            contentDiv.classList.add('hidden');
+            btn.classList.add('collapsed');
+            btn.setAttribute('aria-expanded', 'false');
+        }
+    }
+
+    /**
+     * renderNetworkInspector() - Display HTTP request/response details
+     *
+     * MVC Flow:
+     * - Shows complete request cycle from client to server
+     * - Displays what was sent to server (method, URL, headers)
+     * - Shows what came back (status, headers, controller handling)
+     * - Helps students understand HTTP protocol and request/response cycle
+     *
+     * Features:
+     * - Request section: method, URL, headers, body, timestamp
+     * - Response section: status code (color-coded), headers, content-type, size, duration
+     * - Collapsible header sections (often verbose)
+     * - Shows which controller handled the request
+     * - Timing information
+     *
+     * Lesson Reference:
+     * - Lesson 5: Understanding Controllers and how they handle requests
+     * - Lesson 2: Understanding how data flows from request to response
+     */
+    renderNetworkInspector() {
+        // Get request info from debug data
+        const request_info = this.debugData.request_info;
+        const timing = this.debugData.timing || {};
+
+        // If no request info, show empty state
+        if (!request_info) {
+            return `
+                <div class="network-inspector-empty">
+                    <p>No request information available</p>
+                    <p style="font-size: 10px; margin-top: 10px; color: #858585;">
+                        Backend is not yet tracking HTTP request details
+                    </p>
+                </div>
+            `;
+        }
+
+        const { method = 'GET', url = '/', headers = {}, body = null, status = 200, controller = 'Unknown', content_type = 'text/html' } = request_info;
+
+        // Calculate request duration from timing data
+        const duration = timing.request_start && timing.request_end
+            ? ((timing.request_end - timing.request_start) * 1000).toFixed(1)
+            : 'N/A';
+
+        // Determine status code color
+        let statusColor = '#4ec9b0';
+        if (status >= 500) {
+            statusColor = '#f48771';
+        } else if (status >= 400) {
+            statusColor = '#ce9178';
+        } else if (status >= 300) {
+            statusColor = '#c8ae9d';
+        } else if (status >= 200) {
+            statusColor = '#4ec9b0';
+        }
+
+        // Count headers
+        const headerCount = Object.keys(headers).length;
+
+        let html = `
+            <div class="network-inspector">
+                <div class="network-section">
+                    <div class="network-section-title">REQUEST</div>
+                    <div class="network-request-line">
+                        <span class="network-method">${this.escapeHtml(method)}</span>
+                        <span class="network-url">${this.escapeHtml(url)}</span>
+                    </div>
+
+                    <div class="network-collapsible-section">
+                        <button class="network-collapsible-btn collapsed" data-section="request-headers">
+                            ▼ Request Headers <span class="network-count">{${headerCount}}</span>
+                        </button>
+                        <div class="network-collapsible-content hidden" id="request-headers">
+        `;
+
+        // Render request headers
+        Object.entries(headers).forEach(([key, value]) => {
+            html += `<div class="network-header-line"><span class="network-header-key">${this.escapeHtml(key)}:</span> <span class="network-header-value">${this.escapeHtml(String(value))}</span></div>`;
+        });
+
+        html += `
+                        </div>
+                    </div>
+        `;
+
+        // Show request body if POST
+        if (body && method === 'POST') {
+            html += `
+                    <div class="network-collapsible-section">
+                        <button class="network-collapsible-btn collapsed" data-section="request-body">
+                            ▼ Request Body
+                        </button>
+                        <div class="network-collapsible-content hidden" id="request-body">
+                            <pre class="network-body">${this.escapeHtml(JSON.stringify(body, null, 2))}</pre>
+                        </div>
+                    </div>
+            `;
+        }
+
+        html += `
+                </div>
+
+                <div class="network-section">
+                    <div class="network-section-title">RESPONSE</div>
+                    <div class="network-status-line" style="border-left: 3px solid ${statusColor};">
+                        <span class="network-status" style="color: ${statusColor};">Status: ${status}</span>
+                        <span class="network-status-badge" style="background-color: ${statusColor}; opacity: 0.2; padding: 2px 6px; border-radius: 3px; font-size: 11px;">
+        `;
+
+        if (status >= 500) {
+            html += 'ERROR';
+        } else if (status >= 400) {
+            html += 'CLIENT ERROR';
+        } else if (status >= 300) {
+            html += 'REDIRECT';
+        } else {
+            html += '✓ OK';
+        }
+
+        html += `
+                        </span>
+                    </div>
+
+                    <div class="network-metadata">
+                        <div class="network-metadata-item">
+                            <span class="network-label">Controller:</span>
+                            <span class="network-value">${this.escapeHtml(controller)}</span>
+                        </div>
+                        <div class="network-metadata-item">
+                            <span class="network-label">Content-Type:</span>
+                            <span class="network-value">${this.escapeHtml(content_type)}</span>
+                        </div>
+                        <div class="network-metadata-item">
+                            <span class="network-label">Duration:</span>
+                            <span class="network-value">${duration} ms</span>
+                        </div>
+                    </div>
+
+                    <div class="network-collapsible-section">
+                        <button class="network-collapsible-btn collapsed" data-section="response-headers">
+                            ▼ Response Headers <span class="network-count">{${headerCount}}</span>
+                        </button>
+                        <div class="network-collapsible-content hidden" id="response-headers">
+        `;
+
+        // Render response headers (same as request for now, in reality would be different)
+        Object.entries(headers).forEach(([key, value]) => {
+            html += `<div class="network-header-line"><span class="network-header-key">${this.escapeHtml(key)}:</span> <span class="network-header-value">${this.escapeHtml(String(value))}</span></div>`;
+        });
+
+        html += `
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return html;
     }
 
     /**
