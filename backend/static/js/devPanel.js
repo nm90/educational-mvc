@@ -308,6 +308,11 @@ class DevPanel {
                 if (this.currentTab === 'methods') {
                     this.attachMethodCallListeners();
                 }
+
+                // Attach listeners for Database Query tab
+                if (this.currentTab === 'database') {
+                    this.attachDatabaseQueryListeners();
+                }
             });
         }
     }
@@ -316,12 +321,11 @@ class DevPanel {
      * renderTabContent(tabName) - Generate HTML for tab content
      *
      * Dispatches to appropriate render method based on tab type.
-     * Currently implements State Inspector and Method Calls.
+     * Currently implements State Inspector, Method Calls, and Database Inspector.
      *
      * Future features:
      * - Flow: Animated flow diagram (View → Controller → Model → DB)
      * - Network: List all HTTP requests with details
-     * - Database: Show SQL queries with execution time
      */
     renderTabContent(tabName) {
         if (tabName === 'state') {
@@ -332,16 +336,18 @@ class DevPanel {
             return this.renderMethodCalls();
         }
 
+        if (tabName === 'database') {
+            return this.renderDatabaseQueries();
+        }
+
         const tabLabels = {
             'flow': 'Flow Diagram',
-            'network': 'Network Inspector',
-            'database': 'Database Inspector'
+            'network': 'Network Inspector'
         };
 
         const tabDescriptions = {
             'flow': 'Watch the request flow through MVC layers in real-time',
-            'network': 'Inspect all HTTP requests and responses',
-            'database': 'Review all SQL queries and execution timing'
+            'network': 'Inspect all HTTP requests and responses'
         };
 
         return `
@@ -1057,6 +1063,370 @@ class DevPanel {
 
             // Show/hide node
             if (matchesSearch && matchesLayer && matchesPerformance) {
+                node.style.display = '';
+            } else {
+                node.style.display = 'none';
+            }
+        });
+    }
+
+    /**
+     * renderDatabaseQueries() - Render database queries with timing and analysis
+     *
+     * MVC Flow:
+     * - Reads db_queries from backend (window.__DEBUG__.db_queries)
+     * - Shows all SQL queries executed during request
+     * - Displays query text, parameters, result count, and execution time
+     * - Highlights slow queries (> 50ms)
+     * - Detects N+1 problems (duplicate queries)
+     * - Students can optimize database access based on this data
+     *
+     * Features:
+     * - Expandable query nodes showing full SQL, parameters, results
+     * - Syntax highlighting for SQL keywords
+     * - Total queries count and total execution time
+     * - Warning for duplicate queries (N+1 problem detection)
+     * - Filter to show only slow queries (> 50ms)
+     * - Result row count for each query
+     *
+     * Lesson Reference:
+     * - Lesson 4: Understanding and fixing N+1 query problems
+     * - Lesson 2: How data flows from Model to Database
+     */
+    renderDatabaseQueries() {
+        const queries = this.debugData.db_queries || [];
+
+        // Check if data is empty
+        if (!queries || queries.length === 0) {
+            return `
+                <div class="db-queries-empty">
+                    <p>No SQL queries executed</p>
+                    <p style="font-size: 10px; margin-top: 10px; color: #858585;">
+                        This request didn't access the database
+                    </p>
+                </div>
+            `;
+        }
+
+        // Calculate metrics
+        const totalTime = queries.reduce((sum, q) => sum + (q.duration_ms || 0), 0);
+        const duplicates = this.detectDuplicateQueries(queries);
+        const hasN1Problem = Object.keys(duplicates).some(query => duplicates[query].count > 1);
+
+        // Create header with summary and controls
+        let html = `
+            <div class="db-queries-header">
+                <div class="db-queries-summary">
+                    <strong>${queries.length} queries, ${totalTime.toFixed(1)}ms total</strong>
+        `;
+
+        // Add N+1 warning if duplicate queries detected
+        if (hasN1Problem) {
+            html += `
+                    <div style="margin-top: 10px; padding: 8px; background: #4a3d2a; border-left: 3px solid #f59e0b; border-radius: 3px;">
+                        <span style="color: #f59e0b;">⚠️ Warning: Duplicate queries detected (possible N+1 problem)</span>
+                    </div>
+            `;
+        }
+
+        html += `
+                </div>
+                <div class="db-queries-controls">
+                    <label style="display: inline-flex; align-items: center;">
+                        <input
+                            type="checkbox"
+                            id="filter-slow-queries"
+                            class="db-queries-filter"
+                            data-filter="slow"
+                            aria-label="Show only slow queries"
+                        />
+                        <span style="margin-left: 5px; font-size: 12px;">Show only slow queries (&gt;50ms)</span>
+                    </label>
+                </div>
+            </div>
+            <div class="db-queries-list" id="db-queries-list">
+        `;
+
+        // Render each query
+        queries.forEach((query, index) => {
+            html += this.createQueryNode(query, index, duplicates);
+        });
+
+        html += '</div>';
+        return html;
+    }
+
+    /**
+     * createQueryNode(query, index, duplicates) - Create expandable node for a single SQL query
+     *
+     * Shows:
+     * - SQL query text with syntax highlighting
+     * - Execution duration in milliseconds
+     * - Number of rows affected/returned
+     * - Warning badge if > 50ms (slow)
+     * - Warning badge if query is duplicated (N+1 problem)
+     * - Click to expand → full formatted SQL, parameters, result details
+     *
+     * @param {Object} query - Query object {query, params, result_row_count, duration_ms}
+     * @param {number} index - Index of this query in the list
+     * @param {Object} duplicates - Object mapping queries to count info {query: {count, indices}}
+     * @returns {string} HTML for this query node
+     */
+    createQueryNode(query, index, duplicates) {
+        const { query: queryText, params = [], result_row_count = 0, duration_ms = 0 } = query;
+        const nodeId = `db-query-${index}`;
+
+        // Determine if this query is slow (>50ms)
+        const isSlow = duration_ms > 50;
+
+        // Determine if this query is a duplicate (N+1 problem)
+        const isDuplicate = duplicates[queryText] && duplicates[queryText].count > 1;
+
+        // Create short preview of query (first 80 chars)
+        const shortQuery = queryText.length > 80 ? queryText.substring(0, 80) + '...' : queryText;
+
+        let html = `
+            <div class="db-query-node" data-duration="${duration_ms}" data-duplicate="${isDuplicate}">
+                <button
+                    class="db-query-toggle collapsed"
+                    data-node-id="${nodeId}"
+                    tabindex="0"
+                    aria-expanded="false"
+                    aria-controls="${nodeId}-details"
+                >
+                    ▶
+                </button>
+                <div class="db-query-header">
+                    <span class="db-query-preview">${this.highlightSQL(shortQuery, true)}</span>
+                    <div class="db-query-badges">
+        `;
+
+        // Add slow query badge
+        if (isSlow) {
+            html += `<span class="db-query-badge-slow">[SLOW]</span>`;
+        }
+
+        // Add duplicate query badge
+        if (isDuplicate) {
+            html += `<span class="db-query-badge-duplicate">[DUP x${duplicates[queryText].count}]</span>`;
+        }
+
+        // Add duration and result count
+        html += `
+                        <span class="db-query-duration">${duration_ms.toFixed(1)}ms</span>
+                        <span class="db-query-result-count">${result_row_count} rows</span>
+                    </div>
+                </div>
+                <div
+                    id="${nodeId}-details"
+                    class="db-query-details hidden"
+                    role="region"
+                    aria-labelledby="${nodeId}"
+                >
+                    <div class="db-query-section">
+                        <div class="db-query-section-title">Query</div>
+                        <pre class="db-query-sql">${this.highlightSQL(queryText, false)}</pre>
+                    </div>
+        `;
+
+        // Show parameters if any
+        if (params && params.length > 0) {
+            html += `
+                    <div class="db-query-section">
+                        <div class="db-query-section-title">Parameters</div>
+                        <pre style="margin: 0; background: #1e1e1e; padding: 8px; border-radius: 4px; overflow-x: auto;">
+            `;
+            params.forEach((param, i) => {
+                html += `<span class="tree-node-number">[${i}]</span> ${this.escapeHtml(JSON.stringify(param))}\n`;
+            });
+            html += `</pre>
+                    </div>
+            `;
+        }
+
+        // Show result metadata
+        html += `
+                    <div class="db-query-section">
+                        <div class="db-query-section-title">Result</div>
+                        <div style="padding: 8px; background: #1e1e1e; border-radius: 4px;">
+                            <span style="color: #858585;">Rows affected/returned:</span>
+                            <span class="tree-node-number">${result_row_count}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return html;
+    }
+
+    /**
+     * detectDuplicateQueries(queries) - Identify duplicate queries (N+1 detection)
+     *
+     * Returns an object mapping query text to count and indices of duplicates.
+     * Used to highlight queries that appear multiple times in the same request.
+     *
+     * Example:
+     * {
+     *   'SELECT * FROM users WHERE id = ?': { count: 5, indices: [0, 3, 5, 7, 8] },
+     *   'SELECT * FROM tasks WHERE owner_id = ?': { count: 3, indices: [2, 4, 6] }
+     * }
+     *
+     * @param {Array} queries - Array of query objects
+     * @returns {Object} Mapping of query text to duplicate info
+     */
+    detectDuplicateQueries(queries) {
+        const duplicates = {};
+
+        queries.forEach((q, index) => {
+            const queryText = q.query || '';
+
+            if (!duplicates[queryText]) {
+                duplicates[queryText] = { count: 0, indices: [] };
+            }
+
+            duplicates[queryText].count++;
+            duplicates[queryText].indices.push(index);
+        });
+
+        return duplicates;
+    }
+
+    /**
+     * highlightSQL(sql, shortForm) - Apply syntax highlighting to SQL
+     *
+     * Highlights:
+     * - Keywords: SELECT, FROM, WHERE, JOIN, etc. (blue, bold)
+     * - Table/column names: (white)
+     * - Values: (orange)
+     *
+     * @param {string} sql - SQL query text
+     * @param {boolean} shortForm - If true, don't add newlines (for preview)
+     * @returns {string} HTML string with syntax highlighting
+     */
+    highlightSQL(sql, shortForm = false) {
+        if (!sql) return '';
+
+        let highlighted = this.escapeHtml(sql);
+
+        // SQL keywords to highlight (case-insensitive)
+        const keywords = [
+            'SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER',
+            'ON', 'AND', 'OR', 'NOT', 'IN', 'LIKE', 'ORDER', 'BY', 'GROUP',
+            'HAVING', 'LIMIT', 'OFFSET', 'INSERT', 'INTO', 'VALUES', 'UPDATE',
+            'SET', 'DELETE', 'CREATE', 'DROP', 'ALTER', 'TABLE', 'PRIMARY', 'KEY',
+            'AS', 'DISTINCT', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END'
+        ];
+
+        // Highlight keywords
+        keywords.forEach(keyword => {
+            const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
+            highlighted = highlighted.replace(regex, `<span class="sql-keyword">${keyword.toUpperCase()}</span>`);
+        });
+
+        // Highlight string values (quoted text)
+        highlighted = highlighted.replace(/'([^']*)'/g, `<span class="sql-value">'$1'</span>`);
+
+        // Highlight parameter placeholders
+        highlighted = highlighted.replace(/\?/g, `<span class="sql-param">?</span>`);
+
+        // Format with line breaks (unless short form)
+        if (!shortForm) {
+            highlighted = highlighted.replace(/SELECT/gi, '\nSELECT')
+                                    .replace(/FROM/gi, '\nFROM')
+                                    .replace(/WHERE/gi, '\nWHERE')
+                                    .replace(/JOIN/gi, '\nJOIN')
+                                    .replace(/LEFT/gi, '\nLEFT')
+                                    .replace(/AND/gi, '\nAND')
+                                    .replace(/OR/gi, '\nOR')
+                                    .trim();
+        }
+
+        return highlighted;
+    }
+
+    /**
+     * attachDatabaseQueryListeners() - Attach event handlers for Database Query tab
+     *
+     * Handles:
+     * - Toggle button clicks to expand/collapse query details
+     * - Slow query filter checkbox
+     */
+    attachDatabaseQueryListeners() {
+        const list = document.getElementById('db-queries-list');
+        const filterCheckbox = document.getElementById('filter-slow-queries');
+
+        if (!list) return;
+
+        // Attach toggle listeners to all toggle buttons
+        const toggleButtons = list.querySelectorAll('.db-query-toggle');
+        toggleButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.toggleQueryNode(btn);
+            });
+
+            // Keyboard support: Space/Enter to toggle
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    this.toggleQueryNode(btn);
+                }
+            });
+        });
+
+        // Filter checkbox listener
+        if (filterCheckbox) {
+            filterCheckbox.addEventListener('change', () => {
+                this.filterDatabaseQueries();
+            });
+        }
+    }
+
+    /**
+     * toggleQueryNode(toggleBtn) - Expand/collapse a database query node
+     *
+     * @param {HTMLElement} toggleBtn - The toggle button element
+     */
+    toggleQueryNode(toggleBtn) {
+        const nodeId = toggleBtn.getAttribute('data-node-id');
+        const detailsDiv = document.getElementById(nodeId + '-details');
+
+        if (!detailsDiv) return;
+
+        const isHidden = detailsDiv.classList.contains('hidden');
+
+        if (isHidden) {
+            // Expand
+            detailsDiv.classList.remove('hidden');
+            toggleBtn.classList.remove('collapsed');
+            toggleBtn.setAttribute('aria-expanded', 'true');
+        } else {
+            // Collapse
+            detailsDiv.classList.add('hidden');
+            toggleBtn.classList.add('collapsed');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+        }
+    }
+
+    /**
+     * filterDatabaseQueries() - Filter database queries based on slow query filter
+     *
+     * Shows only queries with duration > 50ms when filter is enabled
+     */
+    filterDatabaseQueries() {
+        const list = document.getElementById('db-queries-list');
+        const showSlowOnly = document.getElementById('filter-slow-queries')?.checked || false;
+
+        if (!list) return;
+
+        const nodes = list.querySelectorAll('.db-query-node');
+
+        nodes.forEach(node => {
+            const duration = parseFloat(node.getAttribute('data-duration')) || 0;
+
+            // Show/hide based on filter
+            if (!showSlowOnly || duration > 50) {
                 node.style.display = '';
             } else {
                 node.style.display = 'none';
