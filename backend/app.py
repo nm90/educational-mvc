@@ -26,6 +26,7 @@ from flask_cors import CORS
 # Import Controllers (Blueprints)
 # Controllers handle specific route groups and orchestrate between Models and Views
 from backend.controllers.user_controller import users_bp
+from backend.controllers.task_controller import tasks_bp
 
 # ============================================================================
 # APPLICATION INITIALIZATION
@@ -70,6 +71,10 @@ CORS(app)
 # Register User Controller - handles /users routes
 # Lesson 5 covers how controllers are registered and used
 app.register_blueprint(users_bp)
+
+# Register Task Controller - handles /tasks routes
+# Demonstrates multi-model orchestration (Task + User)
+app.register_blueprint(tasks_bp)
 
 
 print("=" * 60)
