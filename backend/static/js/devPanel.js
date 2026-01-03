@@ -29,6 +29,17 @@ class DevPanel {
         this.toggleButton = null;
         this.tabs = {};
         this.tabContents = {};
+
+        // Resize state
+        this.isResizing = false;
+        this.resizeStartX = 0;
+        this.resizeStartY = 0;
+        this.resizeStartWidth = 0;
+        this.resizeStartHeight = 0;
+
+        // Bind resize methods so event listeners can be properly removed
+        this.boundHandleResize = (e) => this.handleResize(e);
+        this.boundStopResize = () => this.stopResize();
     }
 
     /**
@@ -153,10 +164,17 @@ class DevPanel {
             this.tabContents[tab.name] = content;
         });
 
+        // Create resize handle
+        const resizeHandle = document.createElement('div');
+        resizeHandle.className = 'dev-panel-resize-handle';
+        resizeHandle.title = 'Drag to resize panel';
+        resizeHandle.setAttribute('aria-label', 'Resize panel handle');
+
         // Assemble panel
         this.panelElement.appendChild(header);
         this.panelElement.appendChild(tabsBar);
         this.panelElement.appendChild(contentArea);
+        this.panelElement.appendChild(resizeHandle);
 
         // Insert into document
         document.body.appendChild(this.toggleButton);
@@ -178,6 +196,12 @@ class DevPanel {
         Object.entries(this.tabs).forEach(([tabName, tabBtn]) => {
             tabBtn.addEventListener('click', () => this.switchTab(tabName));
         });
+
+        // Resize handle listeners
+        const resizeHandle = this.panelElement.querySelector('.dev-panel-resize-handle');
+        if (resizeHandle) {
+            resizeHandle.addEventListener('mousedown', (e) => this.startResize(e));
+        }
 
         // Keyboard shortcut: Alt+D to toggle panel
         document.addEventListener('keydown', (e) => {
@@ -1658,6 +1682,7 @@ class DevPanel {
      * Remembers:
      * - Whether panel was open/closed
      * - Which tab was active
+     * - Panel dimensions (width and height)
      */
     restoreState() {
         const wasOpen = localStorage.getItem('devPanel-open') === 'true';
@@ -1668,6 +1693,129 @@ class DevPanel {
         }
 
         this.switchTab(lastTab);
+        this.restoreSize();
+    }
+
+    /**
+     * startResize(event) - Start panel resize operation
+     *
+     * Called when user presses mouse down on resize handle.
+     * Saves initial state and attaches mouse tracking listeners.
+     *
+     * @param {MouseEvent} event - The mousedown event
+     */
+    startResize(event) {
+        if (event.button !== 0) return; // Only handle left mouse button
+
+        event.preventDefault();
+        this.isResizing = true;
+        this.resizeStartX = event.clientX;
+        this.resizeStartY = event.clientY;
+        this.resizeStartWidth = this.panelElement.offsetWidth;
+        this.resizeStartHeight = this.panelElement.offsetHeight;
+
+        // Add class for visual feedback
+        this.panelElement.classList.add('resizing');
+
+        // Attach global mouse listeners using bound methods for proper cleanup
+        document.addEventListener('mousemove', this.boundHandleResize);
+        document.addEventListener('mouseup', this.boundStopResize);
+
+        console.log('[DevPanel] Resize started');
+    }
+
+    /**
+     * handleResize(event) - Handle mouse movement during resize
+     *
+     * Updates panel width and height based on mouse movement.
+     * The resize handle is at top-left, so:
+     * - Moving left decreases width
+     * - Moving up decreases height
+     * - Moving right increases width
+     * - Moving down increases height
+     *
+     * @param {MouseEvent} event - The mousemove event
+     */
+    handleResize(event) {
+        if (!this.isResizing) return;
+
+        event.preventDefault();
+
+        // Calculate delta from initial position
+        const deltaX = event.clientX - this.resizeStartX;
+        const deltaY = event.clientY - this.resizeStartY;
+
+        // Calculate new dimensions (with minimum size constraints)
+        // For top-left resize: moving left/up decreases size
+        const minWidth = 300;
+        const minHeight = 200;
+        const newWidth = Math.max(minWidth, this.resizeStartWidth - deltaX);
+        const newHeight = Math.max(minHeight, this.resizeStartHeight - deltaY);
+
+        // Apply new dimensions
+        this.panelElement.style.width = newWidth + 'px';
+        this.panelElement.style.height = newHeight + 'px';
+    }
+
+    /**
+     * stopResize() - End panel resize operation
+     *
+     * Called when user releases mouse button.
+     * Removes mouse tracking listeners and saves size preference.
+     */
+    stopResize() {
+        if (!this.isResizing) return;
+
+        this.isResizing = false;
+        this.panelElement.classList.remove('resizing');
+
+        // Remove global mouse listeners using bound methods
+        document.removeEventListener('mousemove', this.boundHandleResize);
+        document.removeEventListener('mouseup', this.boundStopResize);
+
+        // Save new size to localStorage
+        this.saveSize();
+
+        console.log('[DevPanel] Resize ended');
+    }
+
+    /**
+     * saveSize() - Save panel dimensions to localStorage
+     *
+     * Persists current width and height so next page load
+     * restores the user's preferred panel size.
+     */
+    saveSize() {
+        const width = this.panelElement.offsetWidth;
+        const height = this.panelElement.offsetHeight;
+
+        localStorage.setItem('devPanel-width', width.toString());
+        localStorage.setItem('devPanel-height', height.toString());
+
+        console.log('[DevPanel] Size saved:', { width, height });
+    }
+
+    /**
+     * restoreSize() - Restore panel dimensions from localStorage
+     *
+     * Applies saved width and height from previous session.
+     * If not found, uses CSS defaults.
+     */
+    restoreSize() {
+        const savedWidth = localStorage.getItem('devPanel-width');
+        const savedHeight = localStorage.getItem('devPanel-height');
+
+        if (savedWidth) {
+            this.panelElement.style.width = savedWidth + 'px';
+        }
+
+        if (savedHeight) {
+            this.panelElement.style.height = savedHeight + 'px';
+        }
+
+        if (savedWidth || savedHeight) {
+            console.log('[DevPanel] Size restored:', { savedWidth, savedHeight });
+        }
     }
 }
 
