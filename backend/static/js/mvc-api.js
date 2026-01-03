@@ -45,9 +45,14 @@ class MvcApi {
 
                 // Log to console for developer transparency
                 console.group(`📡 API Response: ${options.method || 'GET'} ${url}`);
+                console.log('Full __DEBUG__ object:', data.__DEBUG__);
                 console.log('Request ID:', data.__DEBUG__.request_id);
-                console.log('Method Calls:', data.__DEBUG__.method_calls);
-                console.log('DB Queries:', data.__DEBUG__.db_queries);
+                console.log('Method Calls (count: ' + data.__DEBUG__.method_calls.length + ')');
+                console.table(data.__DEBUG__.method_calls);
+                console.log('DB Queries (count: ' + data.__DEBUG__.db_queries.length + ')');
+                if (data.__DEBUG__.db_queries.length > 0) {
+                    console.table(data.__DEBUG__.db_queries);
+                }
                 console.log('Timing:', {
                     total_ms: (data.__DEBUG__.timing.request_end - data.__DEBUG__.timing.request_start) * 1000
                 });
