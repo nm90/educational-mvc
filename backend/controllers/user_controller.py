@@ -47,6 +47,9 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 # The Controller will call Model methods but NOT access the database directly
 from backend.models.user import User
 
+# Import response helpers for dual-mode (HTML/JSON) support
+from backend.utils.response_helpers import wants_json, success_response, error_response
+
 
 # ============================================================================
 # BLUEPRINT SETUP
@@ -183,53 +186,76 @@ def create():
     """
     Create a new user from form data.
 
-    MVC Flow:
+    Now supports both HTML form submission and JSON API requests.
+
+    MVC Flow (both modes):
     1. Controller receives POST /users with form data
     2. Controller extracts name and email from request
-    3. Controller calls User.create(name, email) (Model layer)
-    4. Model validates data:
-       - If invalid: raises ValueError
-       - If valid: inserts into database
+    3. Controller calls User.create(name, email) (Model layer - unchanged)
+    4. Model validates data and inserts into database
     5. Controller handles result:
-       - On error: re-render form with error message
-       - On success: redirect to /users with success message
-    6. View renders appropriate response
+       - HTML mode: redirect to /users with flash message
+       - JSON mode: return {success: true, data: {...}, __DEBUG__: {...}}
+    6. Response includes full __DEBUG__ trace (method calls, queries, timing)
 
     HTTP: POST /users
-    Form data: name, email
+    Content-Type: application/x-www-form-urlencoded (HTML) or application/json (JSON)
 
-    Dev Panel shows:
+    Dev Panel Shows:
     - User.create() method call with arguments
     - User.validate() being called
-    - INSERT query (if validation passes)
-    - Validation error (if it fails)
+    - INSERT query execution
+    - Validation error details (if failed)
+    - __DEBUG__ available in same response (no redirect needed in JSON mode)
 
     ✅ DO: Let Model handle validation - Controller catches errors
-    ✅ DO: Use flash messages to communicate success/failure to user
+    ✅ DO: Support both HTML and JSON clients from one endpoint
     ⚠️ DON'T: Duplicate validation logic in Controller
+    ⚠️ DON'T: Redirect in JSON mode (return {redirect: url} instead)
 
-    Covered in: Lesson 5 (form submission handling)
+    Covered in: Lesson 5 (form submission handling), Progressive enhancement
     """
     # Extract form data from request
-    # request.form contains POST data from HTML forms
-    name = request.form.get('name', '').strip()
-    email = request.form.get('email', '').strip()
+    # Works with both HTML forms (request.form) and JSON (request.get_json)
+    if request.is_json:
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip()
+    else:
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
 
     try:
-        # Call Model to create user
+        # Call Model to create user (Model layer unchanged)
         # Model.create() validates and inserts into database
         # If validation fails, it raises ValueError
-        User.create(name, email)
+        user = User.create(name, email)
 
-        # Success! Redirect to user list with success message
-        flash('User created successfully!', 'success')
-        return redirect(url_for('users.index'))
+        # Success! Return appropriate response based on client preference
+        if wants_json():
+            # JSON mode: return user data with redirect URL
+            return success_response(
+                data={'user': user},
+                redirect=url_for('users.show', user_id=user['id'])
+            )
+        else:
+            # HTML mode: traditional redirect with flash message
+            flash('User created successfully!', 'success')
+            return redirect(url_for('users.index'))
 
     except ValueError as e:
         # Validation failed - Model raised ValueError
-        # Re-render form with error message and submitted data
-        flash(str(e), 'error')
-        return render_template('users/new.html', name=name, email=email)
+        if wants_json():
+            # JSON mode: return error details
+            return error_response(
+                message=str(e),
+                code='VALIDATION_ERROR',
+                status=400
+            )
+        else:
+            # HTML mode: re-render form with error message and submitted data
+            flash(str(e), 'error')
+            return render_template('users/new.html', name=name, email=email)
 
 
 # ============================================================================
@@ -287,21 +313,20 @@ def update(user_id):
     """
     Update an existing user with form data.
 
-    MVC Flow:
+    Now supports both HTML form submission and JSON API requests.
+
+    MVC Flow (both modes):
     1. Controller receives POST /users/<id>/update with form data
     2. Controller extracts name and email from request
-    3. Controller calls User.update(id, name, email) (Model layer)
-    4. Model validates new data and updates database:
-       - If validation fails: raises ValueError
-       - If user not found: returns None
-       - If success: returns updated user dict
+    3. Controller calls User.update(id, name, email) (Model layer - unchanged)
+    4. Model validates new data and updates database
     5. Controller handles result:
-       - On validation error: re-render form with error
-       - On not found: return 404
-       - On success: redirect to user detail page
+       - HTML mode: redirect to detail page with flash message
+       - JSON mode: return {success: true, data: {...}, __DEBUG__: {...}}
+    6. Response includes full __DEBUG__ trace
 
     HTTP: POST /users/<id>/update
-    Form data: name, email
+    Content-Type: application/x-www-form-urlencoded (HTML) or application/json (JSON)
 
     Args (URL params):
         user_id: The user's ID from URL
@@ -310,40 +335,71 @@ def update(user_id):
     - User.update() method call with arguments
     - User.validate() being called
     - User.get_by_id() checking if user exists
-    - UPDATE query (if validation passes)
+    - UPDATE query execution
+    - __DEBUG__ available in same response (no redirect needed in JSON mode)
 
     ✅ DO: Handle both validation errors AND not-found cases
+    ✅ DO: Support both HTML and JSON clients from one endpoint
     ⚠️ DON'T: Assume update will always succeed
 
-    Covered in: Lesson 5 (update patterns)
+    Covered in: Lesson 5 (update patterns), Progressive enhancement
     """
     # Extract form data
-    name = request.form.get('name', '').strip()
-    email = request.form.get('email', '').strip()
+    # Works with both HTML forms (request.form) and JSON (request.get_json)
+    if request.is_json:
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip()
+    else:
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
 
     try:
-        # Call Model to update user
+        # Call Model to update user (Model layer unchanged)
         # Model validates data, checks if user exists, then updates
         updated_user = User.update(user_id, name, email)
 
         # Check if user was found
         if not updated_user:
-            flash('User not found', 'error')
-            return render_template('errors/404.html', message='User not found'), 404
+            if wants_json():
+                return error_response(
+                    message='User not found',
+                    code='NOT_FOUND',
+                    status=404
+                )
+            else:
+                flash('User not found', 'error')
+                return render_template('errors/404.html', message='User not found'), 404
 
-        # Success! Redirect to user detail page
-        flash('User updated successfully!', 'success')
-        return redirect(url_for('users.show', user_id=user_id))
+        # Success! Return appropriate response based on client preference
+        if wants_json():
+            # JSON mode: return updated user data with redirect URL
+            return success_response(
+                data={'user': updated_user},
+                redirect=url_for('users.show', user_id=user_id)
+            )
+        else:
+            # HTML mode: redirect to user detail page with flash message
+            flash('User updated successfully!', 'success')
+            return redirect(url_for('users.show', user_id=user_id))
 
     except ValueError as e:
-        # Validation failed - re-render form with error
-        flash(str(e), 'error')
-        # Pass the submitted values back to re-fill the form
-        return render_template('users/edit.html', user={
-            'id': user_id,
-            'name': name,
-            'email': email
-        })
+        # Validation failed
+        if wants_json():
+            return error_response(
+                message=str(e),
+                code='VALIDATION_ERROR',
+                status=400
+            )
+        else:
+            # HTML mode: re-render form with error
+            flash(str(e), 'error')
+            # Pass the submitted values back to re-fill the form
+            return render_template('users/edit.html', user={
+                'id': user_id,
+                'name': name,
+                'email': email
+            })
 
 
 # ============================================================================
@@ -354,16 +410,16 @@ def delete(user_id):
     """
     Delete a user.
 
-    MVC Flow:
+    Now supports both HTML form submission and JSON API requests.
+
+    MVC Flow (both modes):
     1. Controller receives POST /users/<id>/delete request
-    2. Controller calls User.delete(id) (Model layer)
-    3. Model checks if user exists and deletes:
-       - If not found: returns False
-       - If deleted: returns True
+    2. Controller calls User.delete(id) (Model layer - unchanged)
+    3. Model checks if user exists and deletes
     4. Controller handles result:
-       - On not found: flash error message
-       - On success: flash success message
-    5. Redirect to user list either way
+       - HTML mode: redirect to list with flash message
+       - JSON mode: return {success: true/false, __DEBUG__: {...}}
+    5. Response includes full __DEBUG__ trace
 
     HTTP: POST /users/<id>/delete
 
@@ -373,8 +429,9 @@ def delete(user_id):
     Dev Panel shows:
     - User.delete() method call with user_id
     - User.get_by_id() checking if user exists
-    - DELETE query (if user found)
+    - DELETE query execution (if user found)
     - Boolean return value
+    - __DEBUG__ available in same response (no redirect needed in JSON mode)
 
     Note: We use POST for delete (not GET) because:
     - GET requests should be safe (no side effects)
@@ -382,17 +439,33 @@ def delete(user_id):
     - Prevents accidental deletion via link clicks or bots
 
     ✅ DO: Use POST/DELETE for destructive actions
+    ✅ DO: Support both HTML and JSON clients from one endpoint
     ⚠️ DON'T: Allow GET requests to modify data
 
-    Covered in: Lesson 5 (HTTP method semantics)
+    Covered in: Lesson 5 (HTTP method semantics), Progressive enhancement
     """
-    # Call Model to delete user
+    # Call Model to delete user (Model layer unchanged)
     success = User.delete(user_id)
 
-    if success:
-        flash('User deleted successfully!', 'success')
+    if wants_json():
+        # JSON mode: return status as JSON
+        if success:
+            return success_response(
+                data={'deleted': True},
+                redirect=url_for('users.index')
+            )
+        else:
+            return error_response(
+                message='User not found',
+                code='NOT_FOUND',
+                status=404
+            )
     else:
-        flash('User not found', 'error')
+        # HTML mode: flash message and redirect
+        if success:
+            flash('User deleted successfully!', 'success')
+        else:
+            flash('User not found', 'error')
 
-    # Always redirect to user list
-    return redirect(url_for('users.index'))
+        # Always redirect to user list
+        return redirect(url_for('users.index'))
