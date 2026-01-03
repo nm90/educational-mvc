@@ -23,6 +23,10 @@ import sqlite3
 from flask import Flask, jsonify
 from flask_cors import CORS
 
+# Import Controllers (Blueprints)
+# Controllers handle specific route groups and orchestrate between Models and Views
+from backend.controllers.user_controller import users_bp
+
 # ============================================================================
 # APPLICATION INITIALIZATION
 # ============================================================================
@@ -54,6 +58,19 @@ app.config['DATABASE_PATH'] = os.path.join(DATABASE_DIR, 'educational_mvc.db')
 # Without CORS, browsers would block requests from the frontend to the API
 
 CORS(app)
+
+
+# ============================================================================
+# REGISTER BLUEPRINTS (CONTROLLERS)
+# ============================================================================
+# Blueprints organize routes into logical groups
+# Each controller is a Blueprint handling a specific resource
+# URL prefixes are defined in the Blueprint (e.g., /users for users_bp)
+
+# Register User Controller - handles /users routes
+# Lesson 5 covers how controllers are registered and used
+app.register_blueprint(users_bp)
+
 
 print("=" * 60)
 print("EDUCATIONAL MVC APP - Starting Server")

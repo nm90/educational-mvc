@@ -30,8 +30,10 @@ Controllers to be implemented:
 Note: Controllers will be registered with Flask app in app.py
 """
 
-# Controllers will be imported here as they are created
-# Example (after UserController is implemented):
-#   from .user_controller import UserController
-#
-# Then registered in app.py with blueprints
+# Controllers are imported here for cleaner imports elsewhere
+# Each controller is a Flask Blueprint
+
+from .user_controller import users_bp
+
+# Export all blueprints
+__all__ = ['users_bp']
