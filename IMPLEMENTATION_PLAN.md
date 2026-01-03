@@ -734,209 +734,337 @@ When complete:
 
 ---
 
-### Phase 2: Method Logging & Developer Panel
+### Phase 2: Async JSON API & Method Logging
 
-**Goal**: Full dev panel showing Python execution (all 5 tabs functional)
+**Goal**: Transparent MVC execution visibility with dual-mode controllers and developer tools
+
+**Phase 2 Architecture**:
+This phase implements a hybrid request handling approach:
+- **HTML Mode**: Traditional form POST → 302 redirect → GET (for classic MVC learning)
+- **JSON Mode**: Async fetch() → immediate JSON response with embedded __DEBUG__ (for modern transparency)
+
+Both modes use the same controllers and models, allowing students to see:
+- Traditional flow (synchronous, form-based)
+- Modern flow (asynchronous, API-based) in the same request/response
 
 #### Feature 2.1: Request Tracking Middleware
-**Time**: 45min
-**Files to create**:
+**Status**: ✅ COMPLETED
+**Files created**:
 - `/backend/utils/__init__.py`
 - `/backend/utils/request_tracker.py`
 
-**Agent Prompt**:
-```
-You are implementing request tracking for the Educational MVC App developer panel.
+**Implementation Summary**:
+- Generates unique request_id (UUID) for each request
+- Tracks method calls, database queries, timing information
+- Stores in Flask's `g` object (request-scoped)
+- Provides `before_request()` and `after_request()` middleware
+- Helper functions: `track_method_call()`, `track_db_query()`, `track_view_data()`
 
-CONTEXT:
-- Every HTTP request needs a unique ID
-- Track all method calls, database queries, timing info
-- This data will be displayed in the developer panel
-- Uses Flask's 'g' object for request-scoped storage
+**Key Design Decision**: __DEBUG__ object is populated throughout request lifecycle and injected/embedded based on response type (see Feature 2.4)
 
-TASK:
-Create backend/utils/request_tracker.py:
-
-1. Request tracking data structure:
-   - request_id: unique UUID for each request
-   - method_calls: list of all Python method invocations
-   - db_queries: list of all SQL queries executed
-   - timing: dict of timestamps (request_start, request_end, phases)
-   - view_data: data passed to template
-
-2. Flask middleware functions:
-
-   before_request():
-   - Generate unique request_id
-   - Store in flask.g.request_id
-   - Initialize g.tracking = {method_calls: [], db_queries: [], timing: {}}
-   - Record request_start timestamp
-
-   after_request(response):
-   - Record request_end timestamp
-   - Inject __DEBUG__ object into HTML response
-   - __DEBUG__ contains: request_id, method_calls, db_queries, timing, view_data
-   - Return modified response
-
-3. Helper functions:
-
-   track_method_call(method_name, args, kwargs, return_value, duration):
-   - Append to g.tracking['method_calls']
-   - Store: method name, args, kwargs, return value, duration
-
-   track_db_query(query, params, result, duration):
-   - Append to g.tracking['db_queries']
-   - Store: SQL query text, parameters, result row count, duration
-
-   track_view_data(data):
-   - Store data passed to template in g.tracking['view_data']
-
-4. Documentation:
-   - Module docstring: Explain request tracking purpose
-   - Comment about Flask 'g' object (request-scoped)
-   - Note: "This enables the developer panel to show full execution flow"
-
-5. Register middleware in app.py:
-   - app.before_request(before_request)
-   - app.after_request(after_request)
-
-IMPORTANT:
-- Use uuid4() for request IDs
-- Inject __DEBUG__ only into HTML responses (check content-type)
-- Format: <script>window.__DEBUG__ = {...JSON...};</script> before </body>
-- Keep tracking lightweight (don't slow down requests)
-
-When complete:
-- Commit: "feat: implement request tracking middleware"
-- Ask user to load a page and check HTML source for __DEBUG__ object
-```
-
-**Test Steps**: Load page, view source, verify __DEBUG__ object exists in HTML
+---
 
 #### Feature 2.2: Method Logging Decorator
-**Time**: 45min
-**Files to create**:
+**Status**: ✅ COMPLETED
+**Files created**:
 - `/backend/utils/decorators.py`
 
-**Agent Prompt**:
-```
-You are creating the @log_method_call decorator for transparent method tracking.
+**Implementation Summary**:
+- Decorator: `@log_method_call` wraps all Model methods
+- Captures: method name (qualified with class name), args, kwargs, return value, execution duration
+- Handles edge cases:
+  * Exceptions: logs before re-raising (preserves stack trace)
+  * Large values: truncates to 1000 chars with "[...TRUNCATED...]" marker
+  * Outside request context: gracefully skips tracking
+- Uses `time.perf_counter()` for precise millisecond timing
+- Uses `func.__qualname__` to capture qualified method names (e.g., "User.create")
 
-CONTEXT:
-- Every Model method will be decorated with @log_method_call
-- Decorator captures: method name, arguments, return value, execution time
-- Data sent to request_tracker for dev panel display
-- This is core to the "no magic" philosophy
+**Applied To**: All User and Task model methods (validate, create, get_by_id, get_all, update, delete)
 
-TASK:
-Create backend/utils/decorators.py:
+**Key Design**: Decorator is transparent - doesn't modify return values or behavior, just logs
 
-1. Implement @log_method_call decorator:
-
-   - Wraps any function/method
-   - Captures:
-     * Method name (qualified: "User.create")
-     * Arguments (args, kwargs)
-     * Return value
-     * Execution time (milliseconds)
-
-   - Calls request_tracker.track_method_call() with captured data
-
-   - Returns original return value (transparent)
-
-2. Handle edge cases:
-   - Methods that raise exceptions (log the exception)
-   - Methods with large return values (truncate if > 1000 chars)
-   - Methods called outside request context (skip tracking gracefully)
-
-3. Documentation:
-   - Docstring: "Decorator to log method invocations for developer panel"
-   - Example usage:
-     ```python
-     @log_method_call
-     def create(name, email):
-         # method implementation
-     ```
-   - Comment: "Enables transparent visibility into MVC method flow"
-
-4. Apply decorator to all Model methods:
-   - Update User model: add @log_method_call to all methods
-   - Update Task model: add @log_method_call to all methods
-
-IMPORTANT:
-- Use functools.wraps to preserve method metadata
-- Use time.perf_counter() for precise timing
-- Don't log sensitive data (passwords, tokens)
-- Make decorator opt-in (don't auto-apply everywhere)
-
-When complete:
-- Commit: "feat: implement method logging decorator"
-- Ask user to trigger User.create() and check __DEBUG__.method_calls in HTML
-```
-
-**Test Steps**: Create a user, verify method_calls array contains create() invocation
+---
 
 #### Feature 2.3: Database Query Logging
-**Time**: 45min
-**Files to modify**:
+**Status**: ✅ COMPLETED (integrated into Feature 2.1)
+**Files modified**:
 - `/backend/database/connection.py`
 
-**Agent Prompt**:
-```
-You are adding SQL query logging to the database connection layer.
+**Implementation Summary**:
+- Modified `execute_query()` to track all SQL operations
+- Captures: SQL text, parameters, result row count, execution duration
+- Different handling for query types:
+  * SELECT: tracks fetched row count
+  * INSERT: tracks lastrowid
+  * UPDATE/DELETE: tracks affected row count
+- Timing: uses `time.perf_counter()` before/after execution
 
-CONTEXT:
-- Every database query needs to be tracked
-- Log: SQL text, parameters, result size, execution time
-- Send to request_tracker for dev panel
-- This shows students exactly what queries are executed
+**Key Design**: Queries are tracked regardless of response mode (HTML or JSON)
 
-TASK:
-Update backend/database/connection.py:
+---
 
-1. Modify execute_query() function:
+#### Feature 2.4: Dual-Mode Controllers & Response Helpers
+**Status**: ✅ COMPLETED (UNPLANNED - addresses 302 redirect issue)
+**Files created**:
+- `/backend/utils/response_helpers.py`
 
-   - Capture query start time
-   - Execute the query
-   - Capture query end time
-   - Calculate duration
+**Purpose**: Enable controllers to serve both traditional HTML and JSON API requests from same endpoints
 
-   - Call request_tracker.track_db_query():
-     * query: SQL string
-     * params: query parameters (list/dict)
-     * result: row count or affected rows
-     * duration: milliseconds
+**Implementation Summary**:
 
-   - Return query results as before
+```python
+def wants_json() -> bool:
+    """Detect client intent via Accept header, X-Requested-With, or ?format=json"""
+    # Checks:
+    # 1. Accept: application/json header
+    # 2. X-Requested-With: XMLHttpRequest header
+    # 3. ?format=json query parameter
 
-2. Handle different query types:
-   - SELECT: return fetched rows, track row count
-   - INSERT: return lastrowid, track affected rows
-   - UPDATE/DELETE: return rowcount, track affected rows
+def success_response(data=None, redirect=None, status=200) -> JSON:
+    """Return {success: true, data: {...}, __DEBUG__: {...}}"""
+    # Embeds __DEBUG__ from g.tracking automatically
+    # Includes redirect URL for client-side navigation
 
-3. Add query logging toggle:
-   - Environment variable: ENABLE_QUERY_LOGGING (default: True)
-   - Skip logging if disabled (for production)
-
-4. Documentation:
-   - Update docstring: "Executes SQL query with automatic logging"
-   - Comment: "All queries visible in dev panel Database Inspector tab"
-   - Add examples of logged query format
-
-IMPORTANT:
-- Preserve existing query behavior (don't break things)
-- Handle query errors gracefully (log the error too)
-- Don't log actual data (just row counts)
-- Be careful with SQL injection (use parameterized queries)
-
-When complete:
-- Commit: "feat: add database query logging"
-- Ask user to create a user and verify __DEBUG__.db_queries contains INSERT query
+def error_response(message, field=None, code=None, status=400) -> JSON:
+    """Return {success: false, error: {...}, __DEBUG__: {...}}"""
+    # Embeds __DEBUG__ for debugging failed requests
+    # Includes field (for form validation errors) and code (error classification)
 ```
 
-**Test Steps**: Perform CRUD operation, check __DEBUG__.db_queries for SQL
+**Pattern Applied to Controllers**:
+Each CRUD action now supports both modes:
+```python
+@route('/', methods=['POST'], strict_slashes=False)
+def create():
+    # Extract form data (works for both form POST and JSON)
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data = request.form
 
-#### Feature 2.4: Developer Panel - Base UI Structure
+    # Call model (unchanged - no knowledge of response mode)
+    user = User.create(name, email)
+
+    # Response based on mode
+    if wants_json():
+        return success_response({'user': user}, redirect=url_for(...))
+    else:
+        flash('User created successfully!')
+        return redirect(url_for(...))
+```
+
+**Critical Change**: Added `strict_slashes=False` to POST routes to prevent 308 PERMANENT_REDIRECT before controller code executes
+
+**Updated Controllers**:
+- `backend/controllers/user_controller.py`: create, update, delete routes
+- `backend/controllers/task_controller.py`: create, update, delete routes
+
+**Key Insight**: This eliminates the 302 redirect problem - JSON clients get __DEBUG__ in same response, HTML clients still work traditionally
+
+---
+
+#### Feature 2.5: JavaScript API Client with Debug Extraction
+**Status**: ✅ COMPLETED (UNPLANNED - supports async architecture)
+**Files created**:
+- `/backend/static/js/mvc-api.js` (moved from frontend/public/js/)
+
+**Purpose**: Centralized fetch() wrapper that extracts and displays __DEBUG__ data
+
+**Implementation Summary**:
+```javascript
+class MvcApi {
+    static async request(url, options = {}) {
+        // Sets standard headers (Accept, Content-Type, X-Requested-With)
+        // Makes fetch() request
+        // Parses JSON response
+        // If __DEBUG__ present:
+        //   - Logs to console with nested console.group() for expandability
+        //   - Stores in window.MVC_DEBUG for dev panel access
+        //   - Displays: method calls (with args/kwargs/return value)
+        //              db queries (with params and duration)
+        //              timing summary
+        // Returns response object to caller
+    }
+
+    static async post(url, formData)    // convenience method
+    static async put(url, formData)     // convenience method
+    static async delete(url)            // convenience method
+}
+```
+
+**Console Output Example**:
+```
+📡 API Response: POST /users
+  Request ID: 1fe9bd88-55aa-453c-87e6-e47548655744
+  Method Calls (3)
+    1. User.validate (0.5ms)
+       Args: ["John", "john@example.com"]
+       Kwargs: {}
+       Return Value: (None)
+       Exception: None
+    2. User.create (2.3ms)
+       Args: ["John", "john@example.com"]
+       ...
+    3. User.get_by_id (1.2ms)
+       ...
+  Database Queries (2)
+    1. INSERT INTO users (name, email) VALUES (?, ?)
+       Params: ["John", "john@example.com"]
+       Rows: 1
+       Duration: 1.5ms
+    2. SELECT * FROM users WHERE id = ?
+       ...
+  ⏱️ Total Request Time: 45.2ms
+```
+
+**Key Features**:
+- Nested `console.group()` structure for fully expandable debugging
+- Shows all method calls chronologically
+- Shows all database queries with parameters
+- Calculates total request time (precise timing)
+- Truncates large values to prevent console bloat
+- Gracefully handles when __DEBUG__ not present
+
+---
+
+#### Feature 2.6: Form Interception & Async Submission Handler
+**Status**: ✅ COMPLETED (UNPLANNED - enables progressive enhancement)
+**Files created**:
+- `/backend/static/js/mvc-forms.js` (moved from frontend/public/js/)
+
+**Purpose**: Progressively enhance HTML forms to submit asynchronously without JavaScript
+
+**Implementation Summary**:
+```javascript
+class MvcFormHandler {
+    static init() {
+        // Find all <form data-async> elements
+        // Attach submit event handlers
+        // Log initialization: "✓ Initialized async form handling for X form(s)"
+    }
+
+    static async handleSubmit(event) {
+        // Prevent default form submission
+        // Serialize form to JSON
+        // Show "Submitting..." state on button
+        // Send via MvcApi.post()
+
+        // On success:
+        //   - Show success message
+        //   - Navigate to redirect URL (if provided)
+        //   - Or reset form (if no redirect)
+
+        // On error:
+        //   - Show error message
+        //   - Highlight invalid field (if provided)
+        //   - Auto-remove highlight on user input
+
+        // Always: re-enable submit button
+    }
+
+    static serializeForm(form) {
+        // Converts FormData to plain JSON object
+    }
+
+    static showMessage(type, message) {
+        // Creates animated flash message
+        // Auto-removes after 5 seconds
+        // Success = green, Error = red
+    }
+}
+```
+
+**Form Usage**:
+```html
+<form action="/users" method="POST" data-async>
+    <input type="text" name="name" required>
+    <input type="email" name="email" required>
+    <button type="submit">Create User</button>
+</form>
+```
+
+**Key Features**:
+- **Progressive Enhancement**: Forms work without JavaScript (traditional POST)
+- **Graceful Fallback**: JavaScript intercepts, but HTML still works
+- **Async Benefits**:
+  * Avoids page reload (smoother UX)
+  * __DEBUG__ visible in same response (no redirect confusion)
+  * Can show success/error messages inline
+- **Accessibility**:
+  * Proper form labels
+  * Error messages for screen readers
+  * Works with keyboard navigation
+
+**Applied To**: All form templates (users/new.html, users/edit.html, tasks/new.html, tasks/edit.html)
+
+---
+
+#### Feature 2.7: Update Templates & Base HTML for Async Architecture
+**Status**: ✅ COMPLETED
+**Files modified**:
+- `/backend/templates/base.html`
+- `/backend/templates/users/new.html`
+- `/backend/templates/users/edit.html`
+- `/backend/templates/tasks/new.html`
+- `/backend/templates/tasks/edit.html`
+
+**Changes**:
+1. Added script includes in base.html:
+   ```html
+   <script src="/static/js/mvc-api.js"></script>
+   <script src="/static/js/mvc-forms.js"></script>
+   ```
+
+2. Added to base.html footer:
+   ```html
+   <script>
+       document.addEventListener('DOMContentLoaded', () => {
+           MvcFormHandler.init();
+       });
+   </script>
+   ```
+
+3. Added `data-async` attribute to all forms:
+   ```html
+   <form action="{{ url_for('users.index') }}" method="POST" data-async>
+   ```
+
+4. Added CSS animations for flash messages (slideDown, slideUp)
+
+5. Updated footer to reflect "Phase 2: Async JSON API"
+
+**Key Benefit**: Same templates work for both traditional and async requests
+
+---
+
+### Phase 2 Summary: Architectural Decisions
+
+**Problem Solved**:
+Original architecture had issue where form POST → 302 redirect → GET caused __DEBUG__ data from create/update operations to be invisible (hidden by redirect)
+
+**Solution Implemented**:
+Dual-mode controllers that support both traditional HTML and modern async JSON requests
+
+**Benefits**:
+1. **Educational**: Students can see both synchronous (form-based) and asynchronous (fetch-based) patterns
+2. **Transparent**: __DEBUG__ data is immediately available (no redirect confusion)
+3. **Progressive**: Forms work without JavaScript, enhanced with JavaScript when available
+4. **Modern**: Supports REST API patterns while maintaining educational MVC flow
+5. **Same Code Path**: Both modes use identical Model methods and business logic
+
+**Comparison to Original Plan**:
+| Original Feature | Actual Implementation |
+|------------------|----------------------|
+| 2.4: Dev Panel UI | Moved to Feature 2.8 (now after async architecture is solid) |
+| 2.5+: Dev Panel Tabs | Moved to Feature 2.9+ (will use __DEBUG__ from both HTML and JSON) |
+
+---
+
+### Phase 2 (Revised): Method Logging & Developer Panel
+
+**Actual Goal**: Full dev panel showing Python execution with support for both HTML and JSON responses
+
+#### Feature 2.8: Developer Panel - Base UI Structure
 **Time**: 60min
 **Files to create**:
 - `/frontend/public/css/devpanel.css`
@@ -1020,7 +1148,7 @@ When complete:
 
 **Test Steps**: Open panel, switch tabs, verify no JavaScript errors
 
-#### Feature 2.5: Dev Panel Tab 1 - State Inspector
+#### Feature 2.9: Dev Panel Tab 1 - State Inspector
 **Time**: 45min
 **Files to modify**:
 - `/frontend/public/js/devPanel.js`
@@ -1093,7 +1221,7 @@ When complete:
 
 **Test Steps**: Load tasks page, open State Inspector, verify task data with relationships visible
 
-#### Feature 2.6: Dev Panel Tab 2 - Method Call Stack
+#### Feature 2.10: Dev Panel Tab 2 - Method Call Stack
 **Time**: 45min
 **Files to modify**:
 - `/frontend/public/js/devPanel.js`
@@ -1173,7 +1301,7 @@ When complete:
 
 **Test Steps**: Create a task, verify create() method appears with arguments and return value
 
-#### Feature 2.7: Dev Panel Tab 3 - Database Inspector
+#### Feature 2.11: Dev Panel Tab 3 - Database Inspector
 **Time**: 45min
 **Files to modify**:
 - `/frontend/public/js/devPanel.js`
@@ -1254,7 +1382,7 @@ When complete:
 
 **Test Steps**: Load tasks, verify queries appear; test with/without include_relations to see N+1
 
-#### Feature 2.8: Dev Panel Tab 4 - Network Inspector
+#### Feature 2.12: Dev Panel Tab 4 - Network Inspector
 **Time**: 30min
 **Files to modify**:
 - `/frontend/public/js/devPanel.js`
@@ -1333,7 +1461,7 @@ When complete:
 
 **Test Steps**: Load any page, check Network tab shows correct method, URL, and status
 
-#### Feature 2.9: Dev Panel Tab 5 - Flow Diagram
+#### Feature 2.13: Dev Panel Tab 5 - Flow Diagram
 **Time**: 60min
 **Files to modify**:
 - `/frontend/public/js/devPanel.js`
@@ -1417,7 +1545,7 @@ When complete:
 
 **Test Steps**: Load tasks page, open Flow Diagram, verify animation shows correct sequence
 
-#### Feature 2.10: Inject view_data into __DEBUG__
+#### Feature 2.14: Inject view_data into __DEBUG__
 **Time**: 30min
 **Files to modify**:
 - `/backend/controllers/user_controller.py`
@@ -2870,11 +2998,13 @@ When complete:
 
 ## Summary
 
-### Total Features: 35 micro-features across 5 phases
+### Total Features: 39 micro-features across 5 phases
 
 **Phase 0**: 1 feature (scaffolding)
 **Phase 1**: 9 features (Core MVC)
-**Phase 2**: 10 features (Developer Panel)
+**Phase 2**: 14 features (Async JSON API + Developer Panel)
+  - Features 2.1-2.7: Async JSON API architecture (COMPLETED)
+  - Features 2.8-2.14: Developer Panel UI and tabs (PENDING)
 **Phase 3**: 6 features (Lesson Engine)
 **Phase 4**: 5 features (Mode Toggle & Polish)
 **Phase 5**: 6 features (Deployment & Docs)
@@ -2913,5 +3043,7 @@ After completing all features, the app should:
 ---
 
 **Plan Created**: 2026-01-03
-**Ready for Implementation**: Yes
+**Last Updated**: 2026-01-03 (Updated for async JSON architecture)
+**Status**: Phase 2.1-2.7 Completed, Ready for Phase 2.8 (Dev Panel UI)
+**Architecture**: Hybrid dual-mode controllers supporting both traditional HTML and async JSON
 **Agent-Friendly**: Yes (detailed prompts included)
