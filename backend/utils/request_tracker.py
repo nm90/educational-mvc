@@ -80,6 +80,14 @@ def init_request_tracking():
         'view_data': {
             'users': [...],
             'tasks': [...]
+        },
+        'request_info': {
+            'method': 'GET',
+            'url': '/tasks',
+            'headers': {...},
+            'status': 200,
+            'controller': 'TaskController.index',
+            'content_type': 'text/html'
         }
     }
     """
@@ -90,7 +98,8 @@ def init_request_tracking():
             'request_start': time.time(),
             'request_end': None
         },
-        'view_data': {}
+        'view_data': {},
+        'request_info': {}
     }
 
 
@@ -107,6 +116,7 @@ def before_request():
     2. Store in flask.g.request_id (request-scoped)
     3. Initialize tracking data structure
     4. Record request start timestamp
+    5. Capture request information (method, URL, headers)
 
     Why in before_request?
     - Runs before any route handler
@@ -116,12 +126,20 @@ def before_request():
     Dev Panel use:
     - request_id ties all related data together
     - timing.request_start marks beginning of execution
+    - request_info shows Network Inspector details
     """
     # Generate unique ID for this request (used to correlate logs)
     g.request_id = str(uuid.uuid4())
 
     # Initialize tracking data structure (empty at start)
     g.tracking = init_request_tracking()
+
+    # Capture request information for Network Inspector
+    g.tracking['request_info'] = {
+        'method': request.method,
+        'url': request.path,
+        'headers': dict(request.headers)
+    }
 
     # Log the request start for developer panel
     # (exact timestamp recorded above in init_request_tracking)
@@ -133,15 +151,16 @@ def after_request(response):
 
     What happens:
     1. Record request end timestamp
-    2. Check if response is HTML (content-type: text/html)
-    3. If HTML, inject __DEBUG__ object before </body>
-    4. Return modified response
+    2. Capture response information (status code, content-type)
+    3. Check if response is HTML (content-type: text/html)
+    4. If HTML, inject __DEBUG__ object before </body>
+    5. Return modified response
 
     Why inject __DEBUG__?
     - Provides complete execution data to client-side dev panel
     - No extra HTTP requests needed (data already computed)
     - JavaScript reads window.__DEBUG__ to populate all tabs
-    - Shows method calls, queries, timing, view data in one object
+    - Shows method calls, queries, timing, view data, request info in one object
 
     Format:
     <script>window.__DEBUG__ = {...};</script>
@@ -153,6 +172,17 @@ def after_request(response):
     """
     # Record when request ended
     g.tracking['timing']['request_end'] = time.time()
+
+    # Capture response information for Network Inspector
+    if hasattr(g, 'tracking') and 'request_info' in g.tracking:
+        g.tracking['request_info']['status'] = response.status_code
+        g.tracking['request_info']['content_type'] = response.content_type or 'text/html'
+
+        # Try to get controller information from Flask's routing info
+        # This is set by the route handler if needed
+        if not hasattr(g, 'controller_name'):
+            g.controller_name = 'Unknown'
+        g.tracking['request_info']['controller'] = g.controller_name
 
     # Only inject debug object into HTML responses
     if response.content_type and 'text/html' in response.content_type:
@@ -166,7 +196,8 @@ def after_request(response):
                 'method_calls': g.tracking['method_calls'],
                 'db_queries': g.tracking['db_queries'],
                 'timing': g.tracking['timing'],
-                'view_data': g.tracking['view_data']
+                'view_data': g.tracking['view_data'],
+                'request_info': g.tracking.get('request_info', {})
             }
 
             # Convert to JSON (safe for HTML context)
