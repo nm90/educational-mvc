@@ -215,6 +215,77 @@
         .mt-20 {
             margin-top: 20px;
         }
+
+        /* Badge styling for status and priority */
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        /* Status badge colors */
+        .badge-status-todo {
+            background-color: #e8e8e8;
+            color: #333;
+        }
+
+        .badge-status-in-progress {
+            background-color: #cce5ff;
+            color: #0044cc;
+        }
+
+        .badge-status-done {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        /* Priority badge colors */
+        .badge-priority-low {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .badge-priority-medium {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-priority-high {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        /* Select/dropdown styling */
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            background-color: white;
+            cursor: pointer;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+
+        /* Textarea styling */
+        textarea {
+            font-family: inherit;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
     </style>
 </head>
 <body>
@@ -222,7 +293,7 @@
     <nav>
         <a href="/">Home</a>
         <a href="{{ url_for('users.index') }}">Users</a>
-        <a href="#">Tasks</a> <!-- Tasks controller not yet implemented -->
+        <a href="{{ url_for('tasks.index') }}">Tasks</a>
     </nav>
 
     <main>

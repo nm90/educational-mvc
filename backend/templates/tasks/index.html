@@ -1,0 +1,136 @@
+<!--
+    Task List Template - Displays all tasks
+
+    MVC Role: VIEW
+    - Receives 'tasks' list from Controller (TaskController.index)
+    - Just displays the data in a table format
+    - Contains NO business logic - only presentation
+
+    Data from Controller:
+    - tasks: List of task dicts, each with:
+      * id, title, status, priority, created_at, updated_at
+      * owner: User object (shows owner.name)
+      * assignee: User object (or null, shows assignee.name)
+
+    Learning Purpose:
+    - Shows how View displays related data (task.owner.name, task.assignee.name)
+    - Demonstrates relationship data from joined queries
+    - Lesson 4 covers task relationships and eager loading
+    - Lesson 6 covers filtering tasks by status
+
+    Key MVC Concepts:
+    - View doesn't know HOW the data was fetched (Model handles queries)
+    - View accesses related objects (owner, assignee) without querying
+    - This requires Controller to use eager loading (eager_load in Model.get_all)
+-->
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Tasks</h1>
+
+    <!-- Create New Task Button -->
+    <!--
+        Links to GET /tasks/new which shows the create form
+        View just provides navigation - Controller handles the route
+    -->
+    <a href="{{ url_for('tasks.new') }}" class="btn btn-primary">Create New Task</a>
+
+    <!-- Task Table -->
+    <!--
+        The 'tasks' variable comes from the Controller.
+        Controller called Task.get_all() (Model) and passed results here.
+        Each task includes:
+        - Basic fields (title, status, priority)
+        - Related objects (owner, assignee) from joined queries
+        - View just iterates and displays - it doesn't query the database
+    -->
+    {% if tasks %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Owner</th>
+                    <th>Assigned To</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in tasks %}
+                    <tr>
+                        <td><strong>{{ task.title }}</strong></td>
+
+                        <!-- Status Badge -->
+                        <!--
+                            Color-coded badges to show task status.
+                            View just displays - Model defines valid statuses.
+                        -->
+                        <td>
+                            <span class="badge badge-status-{{ task.status }}">
+                                {{ task.status | replace('-', ' ') | title }}
+                            </span>
+                        </td>
+
+                        <!-- Priority Badge -->
+                        <!--
+                            Color-coded badges to show task priority.
+                            Red for high, yellow for medium, green for low.
+                        -->
+                        <td>
+                            <span class="badge badge-priority-{{ task.priority }}">
+                                {{ task.priority | title }}
+                            </span>
+                        </td>
+
+                        <!-- Owner Name -->
+                        <!--
+                            Shows owner.name, which is a related User object.
+                            This works because Controller passed eager-loaded tasks.
+                            If Model didn't eager load: would need separate query (N+1 problem).
+                            Lesson 4 explains relationship loading.
+                        -->
+                        <td>{{ task.owner.name }}</td>
+
+                        <!-- Assignee Name (or "Unassigned") -->
+                        <!--
+                            assignee_id can be null, so we check before displaying.
+                            Shows "Unassigned" if no assignee, otherwise shows assignee.name
+                            This demonstrates handling nullable relationships.
+                        -->
+                        <td>
+                            {% if task.assignee %}
+                                {{ task.assignee.name }}
+                            {% else %}
+                                <span class="text-muted">Unassigned</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Action Links -->
+                        <td class="actions">
+                            <!-- View link -->
+                            <a href="{{ url_for('tasks.show', task_id=task.id) }}">View</a>
+
+                            <!-- Edit link -->
+                            <a href="{{ url_for('tasks.edit', task_id=task.id) }}">Edit</a>
+
+                            <!-- Delete form -->
+                            <!--
+                                Delete uses a form with POST method because:
+                                - GET should be safe (no side effects)
+                                - DELETE modifies data, so we use POST
+                                Lesson 5 covers HTTP method semantics
+                            -->
+                            <form action="{{ url_for('tasks.delete', task_id=task.id) }}" method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this task?');">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <!-- Empty state when no tasks exist -->
+        <p class="text-muted mt-20">No tasks found. Create one to get started!</p>
+    {% endif %}
+{% endblock %}

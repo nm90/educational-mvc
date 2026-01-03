@@ -1,0 +1,134 @@
+<!--
+    Create Task Form Template - Form for creating a new task
+
+    MVC Role: VIEW
+    - Displays a form for task input with dropdowns for relationships
+    - Form posts to Controller (POST /tasks)
+    - If validation fails, Controller re-renders this with error and previous values
+    - Contains NO validation logic - only presentation
+
+    Data from Controller (on validation error):
+    - title, description, status, priority, owner_id, assignee_id: Previously submitted values
+    - users: List of all users for owner_id and assignee_id dropdowns
+    - Flash message with validation error (if any)
+
+    Learning Purpose:
+    - Shows how forms post to Controllers
+    - Demonstrates form re-population on validation errors
+    - Shows dropdown menus for relationships (owner, assignee)
+    - Demonstrates how Controller passes data for dropdowns
+    - Lesson 3 covers validation flow through Model
+    - Lesson 4 covers task relationships and selecting related objects
+
+    MVC Flow for form submission:
+    1. User fills form and clicks Submit
+    2. Browser POSTs to /tasks (Controller.create)
+    3. Controller extracts form data
+    4. Controller calls Task.create() (Model)
+    5. Model validates:
+       - If valid: inserts to DB, Controller redirects to /tasks
+       - If invalid: Model raises ValueError, Controller re-renders this form with error
+    6. View displays validation errors and repopulates form with submitted values
+-->
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Create New Task</h1>
+
+    <!-- Task Creation Form -->
+    <!--
+        Form submits to POST /tasks (TaskController.create)
+        Controller will validate via Model, then redirect or show errors
+    -->
+    <form action="{{ url_for('tasks.index') }}" method="POST">
+        <!-- Title Field -->
+        <label for="title">Title *</label>
+        <!--
+            value="{{ title or '' }}" repopulates the field if validation failed.
+            The Controller passes 'title' back when re-rendering after an error.
+        -->
+        <input type="text"
+               id="title"
+               name="title"
+               value="{{ title or '' }}"
+               required
+               placeholder="Enter task title">
+
+        <!-- Description Field -->
+        <label for="description">Description *</label>
+        <!--
+            textarea for longer text input.
+            Repopulates on validation error.
+        -->
+        <textarea id="description"
+                  name="description"
+                  required
+                  placeholder="Enter task description"
+                  style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-height: 100px;">{{ description or '' }}</textarea>
+
+        <!-- Status Dropdown -->
+        <label for="status">Status *</label>
+        <!--
+            Dropdown showing valid status values.
+            Model defines what statuses are valid.
+            View just displays them - it doesn't validate.
+        -->
+        <select id="status" name="status" required style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+            <option value="todo" {% if status == 'todo' %}selected{% endif %}>To Do</option>
+            <option value="in-progress" {% if status == 'in-progress' %}selected{% endif %}>In Progress</option>
+            <option value="done" {% if status == 'done' %}selected{% endif %}>Done</option>
+        </select>
+
+        <!-- Priority Dropdown -->
+        <label for="priority">Priority *</label>
+        <!--
+            Dropdown showing valid priority values.
+            Model defines what priorities are valid.
+        -->
+        <select id="priority" name="priority" required style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+            <option value="low" {% if priority == 'low' %}selected{% endif %}>Low</option>
+            <option value="medium" {% if priority == 'medium' %}selected{% endif %}>Medium</option>
+            <option value="high" {% if priority == 'high' %}selected{% endif %}>High</option>
+        </select>
+
+        <!-- Owner Dropdown -->
+        <label for="owner_id">Owner *</label>
+        <!--
+            Dropdown showing all users from Controller.
+            Controller passes 'users' list for this dropdown.
+            Owner is required - every task must have an owner.
+            Demonstrates how View displays relationship choices.
+        -->
+        <select id="owner_id" name="owner_id" required style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+            <option value="">-- Select Owner --</option>
+            {% for user in users %}
+                <option value="{{ user.id }}" {% if owner_id == user.id|string %}selected{% endif %}>
+                    {{ user.name }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <!-- Assignee Dropdown -->
+        <label for="assignee_id">Assigned To</label>
+        <!--
+            Dropdown showing all users plus "Unassigned" option.
+            Assignee is optional - assignee_id can be null.
+            First option is empty (unassigned).
+            Demonstrates handling nullable relationships in forms.
+        -->
+        <select id="assignee_id" name="assignee_id" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+            <option value="">-- Unassigned --</option>
+            {% for user in users %}
+                <option value="{{ user.id }}" {% if assignee_id == user.id|string %}selected{% endif %}>
+                    {{ user.name }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <!-- Form Actions -->
+        <div class="mt-20">
+            <button type="submit" class="btn btn-primary">Create Task</button>
+            <a href="{{ url_for('tasks.index') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+{% endblock %}
