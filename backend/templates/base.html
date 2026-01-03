@@ -24,6 +24,9 @@
     <!-- Developer Panel Styles -->
     <link rel="stylesheet" href="/static/css/devpanel.css">
 
+    <!-- Lesson Panel Styles (Tutorial Mode sidebar) -->
+    <link rel="stylesheet" href="/static/css/lessonPanel.css">
+
     <!-- Minimal inline CSS for readability -->
     <style>
         /* Basic reset and typography */
@@ -424,5 +427,50 @@
     <!-- Developer Panel - Shows full request/response flow for learning -->
     <!-- Reads window.__DEBUG__ injected by backend, displays MVC execution -->
     <script src="/static/js/devPanel.js"></script>
+
+    <!-- Lesson Engine - Manages Tutorial Mode lessons and panel UI -->
+    <script src="/static/js/lessonEngine.js"></script>
+
+    <script>
+        /**
+         * Initialize Lesson Engine
+         *
+         * Creates global lessonEngine instance if tutorial mode is enabled
+         * Listens for mode toggle changes to load lessons
+         *
+         * Usage from console:
+         *   lessonEngine.loadLesson(1)
+         *   lessonEngine.nextStep()
+         *   lessonEngine.previousStep()
+         */
+        window.lessonEngine = new LessonEngine();
+
+        // Check if tutorial mode is enabled in localStorage
+        function initializeTutorialMode() {
+            const tutorialMode = localStorage.getItem('tutorialMode') !== 'false';
+            if (tutorialMode && window.lessonEngine) {
+                // Load the first lesson if no lesson is currently loaded
+                const progress = window.lessonEngine.loadProgress();
+                if (!progress.currentLesson) {
+                    // Load Lesson 1 for first-time users
+                    window.lessonEngine.loadLesson(1).catch(err => {
+                        console.warn('Could not load Lesson 1:', err);
+                    });
+                } else {
+                    // Resume previous lesson
+                    window.lessonEngine.loadLesson(progress.currentLesson).catch(err => {
+                        console.warn('Could not resume lesson:', err);
+                    });
+                }
+            }
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeTutorialMode);
+        } else {
+            initializeTutorialMode();
+        }
+    </script>
 </body>
 </html>

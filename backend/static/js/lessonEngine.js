@@ -79,6 +79,12 @@ class LessonEngine {
                 this.saveProgress();
             }
 
+            // Create and render the lesson panel UI
+            await this.createPanel();
+            this.renderCurrentStep();
+            this.updateProgress();
+            this.attachEventListeners();
+
             console.log(`✅ Lesson ${lessonId} loaded: "${lesson.title}"`);
             return lesson;
 
@@ -186,6 +192,10 @@ class LessonEngine {
         this.lessonProgress.currentStep = this.currentStepIndex;
         this.saveProgress();
 
+        // Update UI to show new step
+        this.renderCurrentStep();
+        this.updateProgress();
+
         console.log(`Moving to step ${this.currentStepIndex + 1}...`);
         return true;
     }
@@ -204,6 +214,10 @@ class LessonEngine {
         this.currentStepIndex--;
         this.lessonProgress.currentStep = this.currentStepIndex;
         this.saveProgress();
+
+        // Update UI to show previous step
+        this.renderCurrentStep();
+        this.updateProgress();
 
         console.log(`Moving to step ${this.currentStepIndex + 1}...`);
         return true;
@@ -460,6 +474,355 @@ class LessonEngine {
         console.groupEnd();
 
         console.groupEnd();
+    }
+
+    /**
+     * Create lesson panel HTML structure
+     *
+     * Builds the complete lesson panel DOM and inserts into page.
+     * This is the VIEW layer - just creates HTML, no logic.
+     *
+     * @returns {Promise<void>}
+     */
+    async createPanel() {
+        // Check if panel already exists
+        let panelContainer = document.getElementById('lesson-panel');
+        if (panelContainer) {
+            panelContainer.remove();
+        }
+
+        // Create main panel container
+        panelContainer = document.createElement('div');
+        panelContainer.id = 'lesson-panel';
+        panelContainer.innerHTML = `
+            <div class="lesson-panel-header">
+                <h2 class="lesson-panel-title">${this.currentLesson.title}</h2>
+                <p class="lesson-panel-subtitle">${this.currentLesson.description}</p>
+                <div class="lesson-progress-bar">
+                    <div class="lesson-progress-fill"></div>
+                </div>
+                <p class="lesson-progress-text"></p>
+            </div>
+
+            <div class="lesson-panel-content">
+                <!-- Step content will be inserted here -->
+            </div>
+
+            <div class="lesson-panel-actions">
+                <button class="lesson-btn" id="lesson-prev-btn" title="Previous step (← arrow key)">← Previous</button>
+                <button class="lesson-btn lesson-btn-primary" id="lesson-next-btn" title="Next step (→ arrow key)">Next →</button>
+            </div>
+        `;
+
+        // Store reference and add to body
+        this.lessonPanelElement = panelContainer;
+        document.body.insertBefore(panelContainer, document.body.firstChild);
+
+        // Adjust body margin for fixed sidebar
+        document.body.classList.add('lesson-panel-visible');
+
+        // Add keyboard navigation support
+        this.setupKeyboardNavigation();
+    }
+
+    /**
+     * Render the current step content
+     *
+     * Updates the lesson panel with current step's:
+     * - Title and content
+     * - Hint button (if hint exists)
+     * - Checkpoint UI (if checkpoint exists)
+     *
+     * @returns {void}
+     */
+    renderCurrentStep() {
+        const currentStep = this.getCurrentStep();
+        if (!currentStep) return;
+
+        const contentArea = document.querySelector('.lesson-panel-content');
+        contentArea.innerHTML = '';
+
+        // Create step section
+        const stepSection = document.createElement('div');
+        stepSection.className = 'lesson-step';
+        stepSection.innerHTML = `
+            <h3 class="lesson-step-title">${currentStep.title}</h3>
+            <p class="lesson-step-content">${currentStep.content}</p>
+        `;
+
+        contentArea.appendChild(stepSection);
+
+        // Add hint button if hint exists
+        if (currentStep.hint) {
+            const hintBtn = document.createElement('button');
+            hintBtn.className = 'lesson-hint-button';
+            hintBtn.textContent = '💡 Show Hint';
+            hintBtn.addEventListener('click', () => this.showHint(currentStep));
+
+            const hintContent = document.createElement('div');
+            hintContent.className = 'lesson-hint-content';
+            hintContent.innerHTML = currentStep.hint;
+            hintContent.id = 'lesson-hint-text';
+
+            stepSection.appendChild(hintBtn);
+            stepSection.appendChild(hintContent);
+        }
+
+        // Render checkpoint if present
+        if (currentStep.checkpoint) {
+            this.renderCheckpoint(currentStep.checkpoint, contentArea);
+        }
+
+        // Update button states
+        this.updateButtonStates();
+    }
+
+    /**
+     * Render a checkpoint (quiz or code validation)
+     *
+     * Creates UI for:
+     * - Quiz: Radio buttons with question and options
+     * - Code: Text input with validation
+     *
+     * @param {object} checkpoint - Checkpoint data
+     * @param {HTMLElement} container - Container to append checkpoint to
+     * @returns {void}
+     */
+    renderCheckpoint(checkpoint, container) {
+        const checkpointDiv = document.createElement('div');
+        checkpointDiv.className = 'lesson-checkpoint';
+        checkpointDiv.innerHTML = `<div class="lesson-checkpoint-title">🎯 Checkpoint</div>`;
+
+        if (checkpoint.type === 'quiz') {
+            this.renderQuizCheckpoint(checkpoint, checkpointDiv);
+        } else if (checkpoint.type === 'code') {
+            this.renderCodeCheckpoint(checkpoint, checkpointDiv);
+        }
+
+        container.appendChild(checkpointDiv);
+    }
+
+    /**
+     * Render a quiz checkpoint
+     *
+     * @param {object} checkpoint - Quiz checkpoint data
+     * @param {HTMLElement} container - Container to render into
+     * @returns {void}
+     */
+    renderQuizCheckpoint(checkpoint, container) {
+        const quizDiv = document.createElement('div');
+        quizDiv.className = 'lesson-quiz';
+
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'lesson-quiz-question';
+        questionDiv.innerHTML = `<strong>${checkpoint.question}</strong>`;
+        quizDiv.appendChild(questionDiv);
+
+        // Create radio buttons for each option
+        checkpoint.options.forEach((option) => {
+            const label = document.createElement('label');
+            label.className = 'lesson-quiz-option';
+
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.name = 'quiz-answer';
+            radio.value = option;
+
+            radio.addEventListener('change', () => {
+                const isCorrect = this.submitQuizAnswer(option);
+                if (isCorrect) {
+                    // Show success message
+                    const messageDiv = container.querySelector('.lesson-validation-message');
+                    if (messageDiv) {
+                        messageDiv.remove();
+                    }
+                    const successMsg = document.createElement('div');
+                    successMsg.className = 'lesson-validation-message success';
+                    successMsg.textContent = '✅ Correct! You can now move to the next step.';
+                    container.appendChild(successMsg);
+                } else {
+                    // Show error message
+                    const messageDiv = container.querySelector('.lesson-validation-message');
+                    if (messageDiv) {
+                        messageDiv.remove();
+                    }
+                    const errorMsg = document.createElement('div');
+                    errorMsg.className = 'lesson-validation-message error';
+                    errorMsg.textContent = `❌ Incorrect. Try again!`;
+                    container.appendChild(errorMsg);
+                }
+            });
+
+            label.appendChild(radio);
+            label.appendChild(document.createTextNode(' ' + option));
+            quizDiv.appendChild(label);
+        });
+
+        container.appendChild(quizDiv);
+    }
+
+    /**
+     * Render a code checkpoint
+     *
+     * @param {object} checkpoint - Code checkpoint data
+     * @param {HTMLElement} container - Container to render into
+     * @returns {void}
+     */
+    renderCodeCheckpoint(checkpoint, container) {
+        const codeDiv = document.createElement('div');
+        codeDiv.className = 'lesson-code-checkpoint';
+
+        const instructions = document.createElement('div');
+        instructions.className = 'lesson-code-instructions';
+        instructions.innerHTML = checkpoint.instructions;
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'lesson-code-input';
+        textarea.placeholder = checkpoint.placeholder || 'Write your code here...';
+        textarea.id = 'lesson-code-input';
+
+        const submitBtn = document.createElement('button');
+        submitBtn.className = 'lesson-btn lesson-btn-secondary';
+        submitBtn.textContent = 'Validate Code';
+        submitBtn.addEventListener('click', () => {
+            const code = textarea.value;
+            // TODO: Implement code validation logic based on checkpoint.validator
+            console.log('Code validation placeholder:', code);
+        });
+
+        codeDiv.appendChild(instructions);
+        codeDiv.appendChild(textarea);
+        codeDiv.appendChild(submitBtn);
+
+        container.appendChild(codeDiv);
+    }
+
+    /**
+     * Show hint for current step
+     *
+     * Reveals hint text and tracks hint usage.
+     *
+     * @param {object} step - Current step
+     * @returns {void}
+     */
+    showHint(step) {
+        const hintContent = document.getElementById('lesson-hint-text');
+        const hintBtn = document.querySelector('.lesson-hint-button');
+
+        if (hintContent && hintBtn) {
+            hintContent.classList.toggle('visible');
+            hintBtn.classList.toggle('revealed');
+
+            if (hintContent.classList.contains('visible')) {
+                hintBtn.textContent = '💡 Hide Hint';
+                console.log('💡 Hint revealed for step:', step.title);
+            } else {
+                hintBtn.textContent = '💡 Show Hint';
+            }
+        }
+    }
+
+    /**
+     * Update progress bar and step indicators
+     *
+     * Updates:
+     * - Progress bar fill percentage
+     * - "Step X of Y" text
+     * - Step completion indicators
+     *
+     * @returns {void}
+     */
+    updateProgress() {
+        const progress = this.getProgress();
+        const percentage = (progress.currentStep / progress.totalSteps) * 100;
+
+        // Update progress bar
+        const progressFill = document.querySelector('.lesson-progress-fill');
+        if (progressFill) {
+            progressFill.style.width = percentage + '%';
+        }
+
+        // Update progress text
+        const progressText = document.querySelector('.lesson-progress-text');
+        if (progressText) {
+            progressText.textContent = `Step ${progress.currentStep} of ${progress.totalSteps}`;
+        }
+    }
+
+    /**
+     * Update button states (enabled/disabled)
+     *
+     * Disables previous button at first step
+     * Disables next button at last step
+     *
+     * @returns {void}
+     */
+    updateButtonStates() {
+        const progress = this.getProgress();
+        const prevBtn = document.getElementById('lesson-prev-btn');
+        const nextBtn = document.getElementById('lesson-next-btn');
+
+        if (prevBtn) {
+            prevBtn.disabled = progress.currentStep === 1;
+        }
+
+        if (nextBtn) {
+            // Disable next if last step and has checkpoint (unless passed)
+            const currentStep = this.getCurrentStep();
+            const isLastStep = progress.currentStep === progress.totalSteps;
+
+            if (isLastStep) {
+                nextBtn.textContent = '✅ Completed!';
+                nextBtn.disabled = true;
+            } else if (currentStep?.checkpoint && currentStep.checkpoint.type === 'quiz') {
+                // Check if quiz is answered
+                const selectedAnswer = document.querySelector('input[name="quiz-answer"]:checked');
+                nextBtn.disabled = !selectedAnswer;
+            } else {
+                nextBtn.disabled = false;
+            }
+        }
+    }
+
+    /**
+     * Attach event listeners to action buttons
+     *
+     * - Next/Previous buttons
+     * - Keyboard navigation (arrow keys)
+     *
+     * @returns {void}
+     */
+    attachEventListeners() {
+        const nextBtn = document.getElementById('lesson-next-btn');
+        const prevBtn = document.getElementById('lesson-prev-btn');
+
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => this.nextStep());
+        }
+
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => this.previousStep());
+        }
+    }
+
+    /**
+     * Setup keyboard navigation
+     *
+     * - Left arrow: Previous step
+     * - Right arrow: Next step
+     *
+     * @returns {void}
+     */
+    setupKeyboardNavigation() {
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                this.previousStep();
+            } else if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                this.nextStep();
+            }
+        });
     }
 }
 
