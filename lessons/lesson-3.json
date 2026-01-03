@@ -40,50 +40,49 @@
     },
     {
       "id": "3-5",
-      "title": "Read and Update Operations",
-      "content": "The User Model has other important methods:\n\nget_by_id(user_id) - Lines 142-174\n- Queries database for a specific user\n- Returns user dict or None if not found\n- Used when Controller needs to display user details\n\nget_all() - Lines 176-205\n- Queries all users\n- Returns list of user dicts\n- Used for listings and dropdowns\n\nupdate(user_id, name, email) - Lines 207-259\n- Validates new data\n- Checks if user exists\n- Updates database\n- Returns updated user dict\n\ndelete(user_id) - Lines 261-308\n- Checks if user exists\n- Deletes from database\n- Returns boolean (success/failure)\n\nNotice:\n- ALL database operations go through the Model\n- The Model always validates\n- The Model returns appropriate data structures\n- Controllers call Model methods and handle results",
-      "hint": "Scan through the User model methods to see the pattern: validate → database operation → return result",
-      "checkpoint": null
+      "title": "Code Checkpoint: Add .edu Validation",
+      "content": "Now it's your turn! Add a validation rule to check that emails end with '.edu'.\n\nYour task:\n1. Look at the code template below\n2. The validation should check if email ends with '.edu'\n3. If not, raise a ValueError with the message: 'Email must be a .edu domain'\n\nThe code template already shows the existing validation. Add your check after the email format validation.",
+      "hint": "Use email.endswith('.edu') to check the domain suffix",
+      "checkpoint": {
+        "type": "code",
+        "description": "Add email validation for .edu domain only",
+        "instructions": "Add a new validation rule to the User.validate() method that checks if the email ends with '.edu'. If not, raise a ValueError with message: 'Email must be a .edu domain'",
+        "codeTemplate": "@staticmethod\n@log_method_call\ndef validate(name: str, email: str) -> None:\n    # Check name is not empty\n    if not name or not name.strip():\n        raise ValueError(\"Name is required and cannot be empty\")\n    \n    # Check email format\n    if not email or not email.strip():\n        raise ValueError(\"Email is required and cannot be empty\")\n    \n    if not re.match(User.EMAIL_PATTERN, email):\n        raise ValueError(f\"Email format invalid: {email}\")\n    \n    # ADD YOUR VALIDATION HERE:\n    # Check that email ends with .edu\n    ",
+        "validator": {
+          "type": "static",
+          "checks": [
+            {
+              "type": "regex",
+              "pattern": "email\\.endswith\\(['\"]?\\.edu['\"]?\\)",
+              "message": "Must use email.endswith('.edu') to check the domain",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "raise\\s+ValueError.*Email must be a \\.edu domain",
+              "message": "Must raise ValueError with message 'Email must be a .edu domain'",
+              "required": true
+            },
+            {
+              "type": "ast_contains",
+              "node_type": "Raise",
+              "message": "Must include a raise statement for validation",
+              "required": true
+            }
+          ]
+        },
+        "testSteps": [
+          "Try creating a user with alice@example.com (should fail with your new validation error)",
+          "Try creating a user with alice@college.edu (should succeed)",
+          "Watch the Dev Panel 'Method Call Stack' tab to see CheckpointValidator.validate_checkpoint() being called"
+        ],
+        "hints": [
+          "Use email.endswith('.edu') to check the domain",
+          "Add the validation AFTER the email format check",
+          "The error message must be exactly: 'Email must be a .edu domain'",
+          "Look at the 'Validation Result' section below the code editor for feedback"
+        ]
+      }
     }
-  ],
-  "checkpoint": {
-    "type": "code",
-    "description": "Add email validation for .edu domain only",
-    "instructions": "Add a new validation rule to the User.validate() method that checks if the email ends with '.edu'. If not, raise a ValueError with message: 'Email must be a .edu domain'",
-    "codeTemplate": "@staticmethod\n@log_method_call\ndef validate(name: str, email: str) -> None:\n    # Check name is not empty\n    if not name or not name.strip():\n        raise ValueError(\"Name is required and cannot be empty\")\n    \n    # Check email format\n    if not email or not email.strip():\n        raise ValueError(\"Email is required and cannot be empty\")\n    \n    if not re.match(User.EMAIL_PATTERN, email):\n        raise ValueError(f\"Email format invalid: {email}\")\n    \n    # ADD YOUR VALIDATION HERE:\n    # Check that email ends with .edu\n    if not email.endswith('.edu'):\n        raise ValueError(\"Email must be a .edu domain\")",
-    "validator": {
-      "type": "static",
-      "checks": [
-        {
-          "type": "regex",
-          "pattern": "email\\.endswith\\(['\"]?\\.edu['\"]?\\)",
-          "message": "Must use email.endswith('.edu') to check the domain",
-          "required": true
-        },
-        {
-          "type": "regex",
-          "pattern": "raise\\s+ValueError.*Email must be a \\.edu domain",
-          "message": "Must raise ValueError with message 'Email must be a .edu domain'",
-          "required": true
-        },
-        {
-          "type": "ast_contains",
-          "node_type": "Raise",
-          "message": "Must include a raise statement for validation",
-          "required": true
-        }
-      ]
-    },
-    "testSteps": [
-      "Try creating a user with alice@example.com (should fail with your new validation error)",
-      "Try creating a user with alice@college.edu (should succeed)",
-      "Watch the Dev Panel 'Method Call Stack' tab to see CheckpointValidator.validate_checkpoint() being called"
-    ],
-    "hints": [
-      "Use email.endswith('.edu') to check the domain",
-      "Add the validation AFTER the email format check (lines 88-89)",
-      "The error message must be exactly: 'Email must be a .edu domain'",
-      "Look at the 'Validation Result' section below the code editor for feedback"
-    ]
-  }
+  ]
 }
