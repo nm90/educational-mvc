@@ -41,7 +41,7 @@
         Form submits to POST /tasks/<id>/update (TaskController.update)
         Pre-filled with current task data from Controller
     -->
-    <form action="{{ url_for('tasks.update', task_id=task.id) }}" method="POST">
+    <form action="{{ url_for('tasks.update', task_id=task.id) }}" method="POST" data-async>
         <!-- Title Field -->
         <label for="title">Title *</label>
         <!--

@@ -36,7 +36,7 @@
         Form submits to POST /users (UserController.create)
         Controller will validate via Model, then redirect or show errors
     -->
-    <form action="{{ url_for('users.index') }}" method="POST">
+    <form action="{{ url_for('users.index') }}" method="POST" data-async>
         <!-- Name Field -->
         <label for="name">Name</label>
         <!--
