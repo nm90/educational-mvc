@@ -308,3 +308,154 @@
         transition: none;
     }
 }
+
+/* ============================================================================
+   STATE INSPECTOR STYLES
+   ============================================================================ */
+
+.state-inspector-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.state-inspector-search {
+    flex: 1;
+    min-width: 150px;
+    padding: 6px 10px;
+    background-color: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 3px;
+    color: #d4d4d4;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 11px;
+}
+
+.state-inspector-search::placeholder {
+    color: #858585;
+}
+
+.state-inspector-search:focus {
+    outline: none;
+    border-color: #007acc;
+    box-shadow: inset 0 0 0 1px #007acc;
+}
+
+.state-inspector-copy-btn {
+    padding: 6px 10px;
+    background-color: #0e639c;
+    border: 1px solid #007acc;
+    border-radius: 3px;
+    color: #d4d4d4;
+    cursor: pointer;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 11px;
+    transition: all 0.2s;
+}
+
+.state-inspector-copy-btn:hover {
+    background-color: #1177bb;
+}
+
+.state-inspector-copy-btn.copied {
+    background-color: #0d7f3f;
+    border-color: #4ec9b0;
+}
+
+/* JSON tree structure */
+.state-inspector-tree {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.tree-node {
+    margin-left: 0;
+    user-select: none;
+}
+
+.tree-node-toggle {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    margin: 0 4px 0 0;
+    background: none;
+    border: none;
+    color: #858585;
+    cursor: pointer;
+    font-size: 10px;
+    text-align: center;
+    vertical-align: middle;
+    transition: transform 0.1s ease;
+}
+
+.tree-node-toggle.collapsed {
+    transform: rotate(-90deg);
+}
+
+.tree-node-toggle:hover {
+    color: #d4d4d4;
+}
+
+.tree-node-content {
+    display: inline;
+}
+
+.tree-node-key {
+    color: #9cdcfe;
+    font-weight: 600;
+}
+
+.tree-node-type {
+    color: #858585;
+    font-size: 10px;
+}
+
+.tree-node-value {
+    color: #ce9178;
+}
+
+.tree-node-string {
+    color: #4ec9b0;
+}
+
+.tree-node-number {
+    color: #b5cea8;
+}
+
+.tree-node-boolean {
+    color: #569cd6;
+}
+
+.tree-node-null {
+    color: #858585;
+    font-style: italic;
+}
+
+.tree-node-children {
+    display: block;
+    margin-left: 16px;
+}
+
+.tree-node-children.hidden {
+    display: none;
+}
+
+.tree-node-size {
+    color: #858585;
+    font-size: 10px;
+}
+
+.state-inspector-empty {
+    color: #858585;
+    font-style: italic;
+    padding: 20px;
+    text-align: center;
+}
+
+.tree-node-collapsed-preview {
+    color: #858585;
+    font-size: 10px;
+}
