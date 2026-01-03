@@ -21,6 +21,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Educational MVC App</title>
 
+    <!-- Developer Panel Styles -->
+    <link rel="stylesheet" href="/static/css/devpanel.css">
+
     <!-- Minimal inline CSS for readability -->
     <style>
         /* Basic reset and typography */
@@ -417,5 +420,9 @@
 
     <!-- Form Handler - Intercepts form submissions and sends async requests -->
     <script src="/static/js/mvc-forms.js"></script>
+
+    <!-- Developer Panel - Shows full request/response flow for learning -->
+    <!-- Reads window.__DEBUG__ injected by backend, displays MVC execution -->
+    <script src="/static/js/devPanel.js"></script>
 </body>
 </html>
