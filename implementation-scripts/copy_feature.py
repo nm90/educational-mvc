@@ -37,6 +37,32 @@ def read_plan():
         return f.read()
 
 
+def extract_general_principles():
+    """Extract Agent Guidelines & Best Practices section"""
+    plan = read_plan()
+
+    # Find the section between "## Agent Guidelines & Best Practices" and the next section
+    pattern = r"## Agent Guidelines & Best Practices\n\n(.*?)\n---\n"
+    match = re.search(pattern, plan, re.DOTALL)
+
+    if match:
+        return match.group(1)
+    return None
+
+
+def extract_project_structure():
+    """Extract Project Structure section"""
+    plan = read_plan()
+
+    # Find the section between "## Project Structure" and the next major section
+    pattern = r"## Project Structure\n\n(.*?)\n---"
+    match = re.search(pattern, plan, re.DOTALL)
+
+    if match:
+        return match.group(1)
+    return None
+
+
 def extract_feature(feature_id):
     """
     Extract feature section and agent prompt by feature ID.
@@ -47,7 +73,9 @@ def extract_feature(feature_id):
         'time': '30min',
         'files': ['...'],
         'description': '...',
-        'agent_prompt': '...'
+        'agent_prompt': '...',
+        'general_principles': '...',
+        'project_structure': '...'
     }
     """
     plan = read_plan()
@@ -101,7 +129,9 @@ def extract_feature(feature_id):
         'time': time,
         'files': files,
         'description': description,
-        'agent_prompt': agent_prompt
+        'agent_prompt': agent_prompt,
+        'general_principles': extract_general_principles(),
+        'project_structure': extract_project_structure()
     }
 
 
@@ -155,7 +185,25 @@ def list_features():
 def format_output(feature):
     """Format feature for display and copying"""
     output = []
+
+    # Include General Principles and Project Structure at the top
     output.append("\n" + "=" * 80)
+    output.append("AGENT GUIDELINES & PROJECT CONTEXT")
+    output.append("=" * 80)
+    output.append("Read these sections carefully - they apply to all features.\n")
+
+    if feature['general_principles']:
+        output.append("## GENERAL PRINCIPLES\n")
+        output.append(feature['general_principles'])
+        output.append("\n")
+
+    if feature['project_structure']:
+        output.append("## PROJECT STRUCTURE\n")
+        output.append(feature['project_structure'])
+        output.append("\n")
+
+    # Now the specific feature
+    output.append("=" * 80)
     output.append(f"FEATURE {feature['id']}: {feature['title']}")
     output.append("=" * 80 + "\n")
 

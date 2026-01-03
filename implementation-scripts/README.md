@@ -32,10 +32,12 @@ python3 copy_feature.py 1.5
 python3 copy_feature.py 2.3
 ```
 
-This will:
-1. Display the feature title, time estimate, and files to create/modify
-2. Show the complete Agent Prompt section (ready to copy-paste)
-3. Print to stdout for easy reading
+This will display:
+1. **Agent Guidelines & Project Context** (General Principles + Project Structure)
+   - These sections apply to ALL features and should be understood first
+2. **Feature Details** (title, time estimate, files to create/modify)
+3. **Complete Agent Prompt** (ready to copy-paste to the agent)
+4. Print to stdout for easy reading
 
 #### Save feature to file:
 ```bash
@@ -57,21 +59,27 @@ python3 copy_feature.py --list
 **Step 2: Choose a feature to implement**
 Pick the next feature from the list. Example: Feature 0.1
 
-**Step 3: Extract the feature prompt**
+**Step 3: Extract the feature with all context**
 ```bash
 python3 copy_feature.py 0.1
 ```
 
-**Step 4: Copy the Agent Prompt section**
-From the output, copy everything under "AGENT PROMPT (Copy from here):" through the end of the prompt.
+This outputs three sections:
+- **Agent Guidelines & Project Context** (General Principles + Project Structure)
+- **Feature Details** (title, time, files)
+- **Agent Prompt** (detailed instructions)
 
-**Step 5: Send to agent**
-Paste the prompt into your message to the agent, along with any additional context.
+**Step 4: Copy and send to agent**
+Copy the entire output (or just the "Agent Prompt" section if you've already discussed guidelines).
+The output includes:
+- General Principles (applies to all features)
+- Project Structure (so agent understands the architecture)
+- Specific feature prompt (the detailed instructions)
 
-**Step 6: Test after implementation**
+**Step 5: Test after implementation**
 Use the test steps provided in the feature prompt to verify the implementation works.
 
-**Step 7: Approve and move to next feature**
+**Step 6: Approve and move to next feature**
 Once testing passes, proceed to the next feature.
 
 ### Example Workflow
