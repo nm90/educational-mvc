@@ -45,17 +45,38 @@ class MvcApi {
 
                 // Log to console for developer transparency
                 console.group(`📡 API Response: ${options.method || 'GET'} ${url}`);
-                console.log('Full __DEBUG__ object:', data.__DEBUG__);
                 console.log('Request ID:', data.__DEBUG__.request_id);
-                console.log('Method Calls (count: ' + data.__DEBUG__.method_calls.length + ')');
-                console.table(data.__DEBUG__.method_calls);
-                console.log('DB Queries (count: ' + data.__DEBUG__.db_queries.length + ')');
-                if (data.__DEBUG__.db_queries.length > 0) {
-                    console.table(data.__DEBUG__.db_queries);
-                }
-                console.log('Timing:', {
-                    total_ms: (data.__DEBUG__.timing.request_end - data.__DEBUG__.timing.request_start) * 1000
+
+                // Method Calls - log each one individually for full expandability
+                console.group(`Method Calls (${data.__DEBUG__.method_calls.length})`);
+                data.__DEBUG__.method_calls.forEach((call, index) => {
+                    console.group(`${index + 1}. ${call.method_name} (${call.duration_ms}ms)`);
+                    console.log('Args:', call.args);
+                    console.log('Kwargs:', call.kwargs);
+                    console.log('Return Value:', call.return_value);
+                    console.log('Exception:', call.exception || 'None');
+                    console.groupEnd();
                 });
+                console.groupEnd();
+
+                // DB Queries
+                if (data.__DEBUG__.db_queries.length > 0) {
+                    console.group(`Database Queries (${data.__DEBUG__.db_queries.length})`);
+                    data.__DEBUG__.db_queries.forEach((query, index) => {
+                        console.group(`${index + 1}. ${query.query.substring(0, 50)}...`);
+                        console.log('Query:', query.query);
+                        console.log('Params:', query.params);
+                        console.log('Rows:', query.result_row_count);
+                        console.log('Duration:', query.duration_ms + 'ms');
+                        console.groupEnd();
+                    });
+                    console.groupEnd();
+                }
+
+                // Timing summary
+                const totalMs = (data.__DEBUG__.timing.request_end - data.__DEBUG__.timing.request_start) * 1000;
+                console.log(`⏱️ Total Request Time: ${totalMs.toFixed(2)}ms`);
+
                 console.groupEnd();
             }
 
