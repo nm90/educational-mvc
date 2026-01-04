@@ -1,25 +1,50 @@
 {
-  "name": "educational-mvc",
-  "version": "0.1.0",
-  "description": "An interactive educational application for learning MVC architecture with transparent developer tools",
-  "main": "index.js",
+  "name": "educational-mvc-app",
+  "version": "1.0.0",
+  "description": "Interactive MVC learning app - Learn Model-View-Controller architecture with transparent developer tools",
+  "main": "backend/app.py",
   "scripts": {
-    "setup": "pip install -r requirements.txt && python backend/database/init_db.py",
+    "postinstall": "echo '\n✅ Dependencies installed!\n\n📚 Next steps:\n  1. Run: npm run setup     (Initialize database)\n  2. Run: npm start         (Start the application)\n  3. Open: http://localhost:5000\n'",
+    "setup": "pip install -r requirements.txt && python backend/database/seed.py",
     "start": "python backend/app.py",
-    "dev": "python backend/app.py --debug",
-    "docker-build": "docker-compose build",
-    "docker-up": "docker-compose up",
-    "docker-down": "docker-compose down"
+    "dev": "cross-env FLASK_ENV=development python backend/app.py",
+    "clean": "rimraf **/*.pyc **/__pycache__ backend/database/*.db backend/logs/*.log",
+    "clean:db": "rimraf backend/database/educational_mvc.db",
+    "reset": "npm run clean:db && npm run setup",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up",
+    "docker:down": "docker-compose down",
+    "docker:clean": "docker-compose down -v",
+    "docker:logs": "docker-compose logs -f",
+    "test": "echo '⚠️  No tests configured yet. Add tests in the future!' && exit 0",
+    "lint": "echo '⚠️  No linter configured yet. Consider adding pylint or flake8!' && exit 0",
+    "help": "echo '\n📚 Available Commands:\n\n  npm run setup        - Install Python dependencies and seed database\n  npm start            - Start the Flask server (production mode)\n  npm run dev          - Start the Flask server (development mode with debug)\n  npm run clean        - Remove all .pyc files, __pycache__, database, and logs\n  npm run clean:db     - Remove database file only\n  npm run reset        - Clean database and re-seed\n  npm run test         - Run tests (not yet implemented)\n  npm run lint         - Run linter (not yet implemented)\n\n  Docker Commands:\n  npm run docker:build - Build Docker containers\n  npm run docker:up    - Start Docker containers\n  npm run docker:down  - Stop Docker containers\n  npm run docker:clean - Stop containers and remove volumes\n  npm run docker:logs  - View Docker logs\n\n  npm run help         - Show this help message\n'"
   },
   "keywords": [
     "mvc",
+    "model-view-controller",
     "architecture",
     "educational",
     "flask",
-    "javascript"
+    "python",
+    "javascript",
+    "learning",
+    "tutorial",
+    "interactive"
   ],
-  "author": "",
+  "author": "Educational MVC Team",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/educational-mvc"
+  },
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
   "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "rimraf": "^5.0.5"
+  }
 }
