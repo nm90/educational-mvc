@@ -30,6 +30,8 @@ class LessonEngine {
         this.currentStepIndex = 0;
         this.lessonProgress = this.loadProgress();
         this.lessonPanelElement = null;
+        this.lessonStartTime = null; // Track when lesson started for time tracking
+        this.stepStartTime = null;   // Track when step started
     }
 
     /**
@@ -69,6 +71,20 @@ class LessonEngine {
             // Store lesson in memory
             this.currentLesson = lesson;
 
+            // Initialize lesson start time for tracking
+            this.lessonStartTime = Date.now();
+
+            // Initialize lesson progress entry if it doesn't exist
+            if (!this.lessonProgress.lessonProgress[lessonId]) {
+                this.lessonProgress.lessonProgress[lessonId] = {
+                    completed: false,
+                    score: 0,
+                    timeSpent: 0,
+                    hintsUsed: 0,
+                    currentStep: 0
+                };
+            }
+
             // Load progress for this lesson (or start at step 0)
             if (this.lessonProgress.currentLesson === lessonId) {
                 this.currentStepIndex = this.lessonProgress.currentStep || 0;
@@ -78,6 +94,9 @@ class LessonEngine {
                 this.lessonProgress.currentLesson = lessonId;
                 this.saveProgress();
             }
+
+            // Initialize step start time
+            this.stepStartTime = Date.now();
 
             // Create and render the lesson panel UI
             await this.createPanel();
@@ -197,9 +216,16 @@ class LessonEngine {
             return false;
         }
 
+        // Mark current step as complete
+        this.markStepComplete(this.currentLesson.id, this.currentStepIndex);
+
         // Move to next step
         this.currentStepIndex++;
         this.lessonProgress.currentStep = this.currentStepIndex;
+
+        // Reset step start time for new step
+        this.stepStartTime = Date.now();
+
         this.saveProgress();
 
         // Update UI to show new step
@@ -350,6 +376,24 @@ class LessonEngine {
 
             const result = await response.json();
 
+            // Track checkpoint attempt
+            const checkpointKey = `${this.currentLesson.id}-checkpoint`;
+            if (!this.lessonProgress.checkpointAttempts[checkpointKey]) {
+                this.lessonProgress.checkpointAttempts[checkpointKey] = {
+                    attempts: 0,
+                    passed: false
+                };
+            }
+
+            this.lessonProgress.checkpointAttempts[checkpointKey].attempts++;
+
+            if (result.data?.passed) {
+                this.lessonProgress.checkpointAttempts[checkpointKey].passed = true;
+                this.lessonProgress.checkpointAttempts[checkpointKey].firstPassDate = new Date().toISOString();
+            }
+
+            this.saveProgress();
+
             // Show validation result in UI
             this.showValidationResult(result);
 
@@ -409,19 +453,55 @@ class LessonEngine {
     /**
      * Mark current lesson as complete
      *
-     * Adds to completedLessons array and saves to localStorage
+     * Updates:
+     * - Adds to completedLessons array
+     * - Calculates final score based on hints used and checkpoint attempts
+     * - Records completion time
+     * - Saves to localStorage
+     *
+     * Score calculation:
+     * - Start with 100 points
+     * - Deduct 10 points per hint used (min 0)
+     * - Deduct 5 points per failed checkpoint attempt (min 0)
      */
     markLessonComplete() {
         if (!this.lessonProgress.completedLessons) {
             this.lessonProgress.completedLessons = [];
         }
 
-        if (!this.lessonProgress.completedLessons.includes(this.currentLesson.id)) {
-            this.lessonProgress.completedLessons.push(this.currentLesson.id);
+        const lessonId = this.currentLesson.id;
+
+        // Only mark as complete if not already completed
+        if (!this.lessonProgress.completedLessons.includes(lessonId)) {
+            this.lessonProgress.completedLessons.push(lessonId);
+
+            // Calculate score
+            const lessonData = this.lessonProgress.lessonProgress[lessonId];
+            if (lessonData) {
+                let score = 100;
+
+                // Deduct for hints
+                score -= (lessonData.hintsUsed || 0) * 10;
+
+                // Deduct for checkpoint attempts (count failed attempts)
+                const checkpointKey = `${lessonId}-checkpoint`;
+                const checkpointData = this.lessonProgress.checkpointAttempts[checkpointKey];
+                if (checkpointData && checkpointData.attempts > 1) {
+                    score -= (checkpointData.attempts - 1) * 5;
+                }
+
+                // Ensure score is at least 0
+                score = Math.max(0, score);
+
+                lessonData.score = score;
+                lessonData.completed = true;
+                lessonData.completedDate = new Date().toISOString();
+
+                console.log(`✅ Lesson ${lessonId} completed with score: ${score}%`);
+            }
         }
 
         this.saveProgress();
-        console.log(`✅ Lesson ${this.currentLesson.id} marked as complete!`);
     }
 
     /**
@@ -435,42 +515,212 @@ class LessonEngine {
     }
 
     /**
+     * Mark a specific step as complete
+     *
+     * Updates progress tracking for the current step.
+     * Called when moving to the next step.
+     *
+     * @param {number} lessonId - Lesson ID
+     * @param {number} stepIndex - Step index to mark complete
+     * @returns {void}
+     */
+    markStepComplete(lessonId, stepIndex) {
+        // Ensure lesson progress exists
+        if (!this.lessonProgress.lessonProgress[lessonId]) {
+            this.lessonProgress.lessonProgress[lessonId] = {
+                completed: false,
+                score: 0,
+                timeSpent: 0,
+                hintsUsed: 0,
+                currentStep: stepIndex
+            };
+        }
+
+        // Update current step
+        this.lessonProgress.lessonProgress[lessonId].currentStep = stepIndex;
+
+        // Save progress
+        this.saveProgress();
+
+        console.log(`✓ Step ${stepIndex + 1} marked complete for Lesson ${lessonId}`);
+    }
+
+    /**
+     * Check if user can access a specific lesson
+     *
+     * Enforces sequential lesson progression:
+     * - Lesson 1 is always accessible
+     * - Other lessons require previous lesson to be completed
+     *
+     * @param {number} lessonId - Lesson ID to check access for
+     * @returns {boolean} - True if user can access this lesson
+     */
+    canAccessLesson(lessonId) {
+        // Lesson 1 is always accessible
+        if (lessonId === 1) {
+            return true;
+        }
+
+        // Check if previous lesson is completed
+        const previousLessonId = lessonId - 1;
+        return this.isLessonComplete(previousLessonId);
+    }
+
+    /**
+     * Export progress as downloadable JSON file
+     *
+     * Creates a complete backup of user's progress including:
+     * - All lesson progress
+     * - Checkpoint attempts
+     * - Completed lessons
+     * - Time tracking data
+     *
+     * @returns {void}
+     */
+    exportProgress() {
+        try {
+            // Create export data with metadata
+            const exportData = {
+                exportDate: new Date().toISOString(),
+                version: '1.0',
+                progress: {
+                    currentLesson: this.lessonProgress.currentLesson,
+                    currentStep: this.lessonProgress.currentStep,
+                    completedLessons: this.lessonProgress.completedLessons || [],
+                    lessonProgress: this.lessonProgress.lessonProgress || {},
+                    checkpointAttempts: this.lessonProgress.checkpointAttempts || {},
+                    totalTimeSpent: this.lessonProgress.totalTimeSpent || 0
+                },
+                stats: {
+                    totalLessonsCompleted: this.lessonProgress.completedLessons?.length || 0,
+                    completionPercentage: this.getCompletionPercentage(),
+                    totalCheckpointAttempts: Object.values(this.lessonProgress.checkpointAttempts || {})
+                        .reduce((sum, cp) => sum + cp.attempts, 0)
+                }
+            };
+
+            // Convert to JSON string
+            const jsonString = JSON.stringify(exportData, null, 2);
+
+            // Create blob and download link
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `lesson-progress-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+
+            // Cleanup
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            console.log('📥 Progress exported successfully');
+
+        } catch (error) {
+            console.error('Failed to export progress:', error);
+            alert('Failed to export progress. See console for details.');
+        }
+    }
+
+    /**
      * Save progress to localStorage
      *
-     * Persists:
-     * - Current lesson ID
-     * - Current step in that lesson
+     * Persists comprehensive progress data:
+     * - Current lesson ID and step
      * - List of completed lessons
+     * - Per-lesson progress (score, time, hints)
+     * - Checkpoint attempts
+     * - Total time spent
+     *
+     * Handles localStorage quota exceeded errors.
      *
      * Called after:
      * - Moving to new step
      * - Completing lesson
      * - Starting new lesson
+     * - Using hints
+     * - Completing checkpoints
      */
     saveProgress() {
         try {
+            // Update current lesson's time spent if a lesson is active
+            if (this.currentLesson && this.lessonStartTime) {
+                const timeSpent = Math.floor((Date.now() - this.lessonStartTime) / 1000);
+                const lessonId = this.currentLesson.id;
+
+                if (!this.lessonProgress.lessonProgress[lessonId]) {
+                    this.lessonProgress.lessonProgress[lessonId] = {
+                        completed: false,
+                        score: 0,
+                        timeSpent: 0,
+                        hintsUsed: 0,
+                        currentStep: this.currentStepIndex
+                    };
+                }
+
+                this.lessonProgress.lessonProgress[lessonId].timeSpent = timeSpent;
+                this.lessonProgress.lessonProgress[lessonId].currentStep = this.currentStepIndex;
+            }
+
             const progressData = {
                 currentLesson: this.lessonProgress.currentLesson,
                 currentStep: this.lessonProgress.currentStep || 0,
                 completedLessons: this.lessonProgress.completedLessons || [],
+                lessonProgress: this.lessonProgress.lessonProgress || {},
+                checkpointAttempts: this.lessonProgress.checkpointAttempts || {},
+                totalTimeSpent: this.lessonProgress.totalTimeSpent || 0,
                 lastSaved: new Date().toISOString()
             };
 
             localStorage.setItem('lessonProgress', JSON.stringify(progressData));
             console.log('💾 Progress saved to localStorage');
+
         } catch (error) {
-            console.error('Failed to save progress:', error);
+            // Handle localStorage quota exceeded
+            if (error.name === 'QuotaExceededError' || error.code === 22) {
+                console.error('❌ localStorage quota exceeded. Clearing old data...');
+
+                // Try to save minimal progress (just current position and completed lessons)
+                try {
+                    const minimalProgress = {
+                        currentLesson: this.lessonProgress.currentLesson,
+                        currentStep: this.lessonProgress.currentStep || 0,
+                        completedLessons: this.lessonProgress.completedLessons || [],
+                        lastSaved: new Date().toISOString()
+                    };
+                    localStorage.setItem('lessonProgress', JSON.stringify(minimalProgress));
+                    console.warn('⚠️ Saved minimal progress due to storage limits');
+                } catch (minimalError) {
+                    console.error('❌ Failed to save even minimal progress:', minimalError);
+                }
+            } else {
+                console.error('Failed to save progress:', error);
+            }
         }
     }
 
     /**
      * Load progress from localStorage
      *
-     * Returns:
-     * - Current lesson progress (or empty object if first time)
-     * - Allows user to resume where they left off
+     * Returns comprehensive progress structure:
+     * {
+     *   currentLesson: 1,
+     *   currentStep: 2,
+     *   completedLessons: [1, 2],
+     *   lessonProgress: {
+     *     1: {completed: true, score: 100, timeSpent: 300, hintsUsed: 0},
+     *     2: {completed: false, score: 50, currentStep: 2, timeSpent: 150, hintsUsed: 1}
+     *   },
+     *   checkpointAttempts: {
+     *     "1-checkpoint": {attempts: 2, passed: true, firstPassDate: "2024-01-01"}
+     *   },
+     *   totalTimeSpent: 450,
+     *   lastSaved: "2024-01-01T12:00:00Z"
+     * }
      *
-     * @returns {object} - Progress object from localStorage
+     * @returns {object} - Comprehensive progress object from localStorage
      */
     loadProgress() {
         try {
@@ -478,36 +728,95 @@ class LessonEngine {
             if (saved) {
                 const progress = JSON.parse(saved);
                 console.log('📖 Progress loaded from localStorage:', progress);
+
+                // Ensure all required fields exist (for backward compatibility)
+                if (!progress.lessonProgress) progress.lessonProgress = {};
+                if (!progress.checkpointAttempts) progress.checkpointAttempts = {};
+                if (!progress.completedLessons) progress.completedLessons = [];
+                if (!progress.totalTimeSpent) progress.totalTimeSpent = 0;
+
                 return progress;
             }
         } catch (error) {
             console.error('Failed to load progress:', error);
         }
 
-        // First time - return empty progress object
+        // First time - return empty progress object with full structure
         return {
             currentLesson: null,
             currentStep: 0,
-            completedLessons: []
+            completedLessons: [],
+            lessonProgress: {},
+            checkpointAttempts: {},
+            totalTimeSpent: 0,
+            lastSaved: null
         };
     }
 
     /**
      * Reset all progress
      *
-     * Clears localStorage and resets lesson engine.
-     * Used for testing or when user wants to start over.
+     * Clears all saved progress from localStorage and resets lesson engine.
+     * Shows confirmation dialog before proceeding.
+     *
+     * Use cases:
+     * - User wants to start over from scratch
+     * - Testing lesson flows
+     * - Clearing corrupted progress data
+     *
+     * @param {boolean} skipConfirmation - Skip confirmation dialog (for programmatic resets)
+     * @returns {boolean} - True if reset was performed, false if canceled
      */
-    resetProgress() {
+    resetProgress(skipConfirmation = false) {
+        // Show confirmation dialog unless skipped
+        if (!skipConfirmation) {
+            const confirmed = confirm(
+                '⚠️ Reset All Progress?\n\n' +
+                'This will permanently delete:\n' +
+                '• All completed lessons\n' +
+                '• Your scores and time tracking\n' +
+                '• Checkpoint attempts\n' +
+                '• Current lesson position\n\n' +
+                'This action cannot be undone. Continue?'
+            );
+
+            if (!confirmed) {
+                console.log('❌ Progress reset canceled by user');
+                return false;
+            }
+        }
+
+        // Clear localStorage
         localStorage.removeItem('lessonProgress');
+
+        // Reset all progress data
         this.lessonProgress = {
             currentLesson: null,
             currentStep: 0,
-            completedLessons: []
+            completedLessons: [],
+            lessonProgress: {},
+            checkpointAttempts: {},
+            totalTimeSpent: 0,
+            lastSaved: null
         };
+
+        // Reset current state
         this.currentLesson = null;
         this.currentStepIndex = 0;
-        console.log('🔄 Progress reset');
+        this.lessonStartTime = null;
+        this.stepStartTime = null;
+
+        console.log('🔄 Progress reset successfully');
+
+        // Reload page to start fresh (optional - could also just reload Lesson 1)
+        if (!skipConfirmation) {
+            const shouldReload = confirm('Progress reset complete!\n\nReload page to start from Lesson 1?');
+            if (shouldReload) {
+                window.location.reload();
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -589,25 +898,57 @@ class LessonEngine {
         panelContainer = document.createElement('div');
         panelContainer.id = 'lesson-panel';
 
-        // Build lesson selector options
+        // Build lesson selector options with locked/completed states
         let lessonOptions = '';
         for (let i = 1; i <= 8; i++) {
-            const isCompleted = this.lessonProgress.completedLessons?.includes(i);
+            const isCompleted = this.isLessonComplete(i);
+            const canAccess = this.canAccessLesson(i);
             const isSelected = this.currentLesson.id === i;
-            const completedBadge = isCompleted ? ' ✓' : '';
-            lessonOptions += `<option value="${i}" ${isSelected ? 'selected' : ''}>Lesson ${i}${completedBadge}</option>`;
+            const isCurrent = this.lessonProgress.currentLesson === i && !isCompleted;
+
+            // Create label with status indicators
+            let label = `Lesson ${i}`;
+            if (isCompleted) {
+                const lessonData = this.lessonProgress.lessonProgress[i];
+                const score = lessonData?.score || 0;
+                label += ` ✓ (${score}%)`;
+            } else if (isCurrent) {
+                label += ' (In Progress)';
+            } else if (!canAccess) {
+                label += ' 🔒 (Locked)';
+            }
+
+            // Disable locked lessons
+            const disabled = !canAccess ? 'disabled' : '';
+            lessonOptions += `<option value="${i}" ${isSelected ? 'selected' : ''} ${disabled}>${label}</option>`;
         }
+
+        // Calculate overall progress
+        const overallProgress = this.getCompletionPercentage();
+        const completedCount = this.lessonProgress.completedLessons?.length || 0;
 
         panelContainer.innerHTML = `
             <div class="lesson-panel-header">
+                <div class="lesson-overall-progress">
+                    <div class="lesson-overall-stats">
+                        <span class="lesson-overall-label">Overall Progress:</span>
+                        <span class="lesson-overall-percentage">${overallProgress}% (${completedCount}/8 lessons)</span>
+                    </div>
+                    <div class="lesson-overall-bar">
+                        <div class="lesson-overall-fill" style="width: ${overallProgress}%"></div>
+                    </div>
+                </div>
+
                 <div class="lesson-selector-wrapper">
                     <label for="lesson-selector" class="lesson-selector-label">Jump to Lesson:</label>
                     <select id="lesson-selector" class="lesson-selector">
                         ${lessonOptions}
                     </select>
                 </div>
+
                 <h2 class="lesson-panel-title">${this.currentLesson.title}</h2>
                 <p class="lesson-panel-subtitle">${this.currentLesson.description}</p>
+
                 <div class="lesson-progress-bar">
                     <div class="lesson-progress-fill"></div>
                 </div>
@@ -621,6 +962,11 @@ class LessonEngine {
             <div class="lesson-panel-actions">
                 <button class="lesson-btn" id="lesson-prev-btn" title="Previous step (← arrow key)">← Previous</button>
                 <button class="lesson-btn lesson-btn-primary" id="lesson-next-btn" title="Next step (→ arrow key)">Next →</button>
+            </div>
+
+            <div class="lesson-panel-footer">
+                <button class="lesson-btn-small" id="lesson-export-btn" title="Export progress as JSON">📥 Export</button>
+                <button class="lesson-btn-small" id="lesson-reset-btn" title="Reset all progress">🔄 Reset</button>
             </div>
         `;
 
@@ -904,7 +1250,7 @@ class LessonEngine {
     /**
      * Show hint for current step
      *
-     * Reveals hint text and tracks hint usage.
+     * Reveals hint text and tracks hint usage for scoring.
      *
      * @param {object} step - Current step
      * @returns {void}
@@ -914,12 +1260,24 @@ class LessonEngine {
         const hintBtn = document.querySelector('.lesson-hint-button');
 
         if (hintContent && hintBtn) {
+            const wasHidden = !hintContent.classList.contains('visible');
+
             hintContent.classList.toggle('visible');
             hintBtn.classList.toggle('revealed');
 
             if (hintContent.classList.contains('visible')) {
                 hintBtn.textContent = '💡 Hide Hint';
-                console.log('💡 Hint revealed for step:', step.title);
+
+                // Track hint usage (only count first reveal)
+                if (wasHidden && this.currentLesson) {
+                    const lessonId = this.currentLesson.id;
+                    if (this.lessonProgress.lessonProgress[lessonId]) {
+                        this.lessonProgress.lessonProgress[lessonId].hintsUsed =
+                            (this.lessonProgress.lessonProgress[lessonId].hintsUsed || 0) + 1;
+                        this.saveProgress();
+                        console.log('💡 Hint revealed (this may affect your final score)');
+                    }
+                }
             } else {
                 hintBtn.textContent = '💡 Show Hint';
             }
@@ -992,6 +1350,8 @@ class LessonEngine {
      * Attach event listeners to action buttons
      *
      * - Next/Previous buttons
+     * - Lesson selector dropdown
+     * - Export/Reset buttons
      * - Keyboard navigation (arrow keys)
      *
      * @returns {void}
@@ -1000,6 +1360,8 @@ class LessonEngine {
         const nextBtn = document.getElementById('lesson-next-btn');
         const prevBtn = document.getElementById('lesson-prev-btn');
         const lessonSelector = document.getElementById('lesson-selector');
+        const exportBtn = document.getElementById('lesson-export-btn');
+        const resetBtn = document.getElementById('lesson-reset-btn');
 
         if (nextBtn) {
             nextBtn.addEventListener('click', () => this.nextStep());
@@ -1009,11 +1371,34 @@ class LessonEngine {
             prevBtn.addEventListener('click', () => this.previousStep());
         }
 
-        // Lesson selector dropdown
+        // Lesson selector dropdown - enforce access control
         if (lessonSelector) {
             lessonSelector.addEventListener('change', (event) => {
                 const lessonId = parseInt(event.target.value);
+
+                // Check if user can access this lesson
+                if (!this.canAccessLesson(lessonId)) {
+                    alert(`🔒 Lesson ${lessonId} is locked!\n\nYou must complete Lesson ${lessonId - 1} first.`);
+                    // Revert to current lesson
+                    event.target.value = this.currentLesson.id;
+                    return;
+                }
+
                 this.loadLesson(lessonId);
+            });
+        }
+
+        // Export progress button
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+                this.exportProgress();
+            });
+        }
+
+        // Reset progress button
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                this.resetProgress();
             });
         }
     }

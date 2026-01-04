@@ -92,6 +92,52 @@ body.lesson-panel-visible main {
     border-bottom: 2px solid rgba(255, 255, 255, 0.2);
 }
 
+/* Overall progress section */
+.lesson-overall-progress {
+    margin-bottom: 15px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lesson-overall-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.lesson-overall-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.lesson-overall-percentage {
+    font-size: 12px;
+    font-weight: 700;
+    color: #4ade80;
+}
+
+.lesson-overall-bar {
+    width: 100%;
+    height: 8px;
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.lesson-overall-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4ade80 0%, #22c55e 100%);
+    width: 0%;
+    transition: width 0.5s ease;
+    border-radius: 4px;
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
+}
+
 /* Lesson selector wrapper */
 .lesson-selector-wrapper {
     display: flex;
@@ -137,6 +183,11 @@ body.lesson-panel-visible main {
 .lesson-selector option {
     background-color: #34495e;
     color: white;
+}
+
+.lesson-selector option:disabled {
+    color: #999;
+    background-color: #2c3e50;
 }
 
 .lesson-panel-title {
@@ -421,6 +472,51 @@ body.lesson-panel-visible main {
 .lesson-btn.lesson-btn-secondary:hover:not(:disabled) {
     background-color: #d97706;
     border-color: #d97706;
+}
+
+/* Lesson panel footer with utility buttons */
+.lesson-panel-footer {
+    display: flex;
+    gap: 8px;
+    padding: 10px 15px;
+    background: rgba(0, 0, 0, 0.15);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lesson-btn-small {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.lesson-btn-small:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+.lesson-btn-small:active {
+    transform: translateY(0);
+}
+
+#lesson-export-btn:hover {
+    background-color: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.4);
+    color: #60a5fa;
+}
+
+#lesson-reset-btn:hover {
+    background-color: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #ef4444;
 }
 
 /* Completed steps indicator */
