@@ -3,13 +3,17 @@
 Copy Feature Extractor
 
 Extracts feature details and agent prompt from docs/IMPLEMENTATION_PLAN.md
-for easy copy-paste to agents.
+or docs/ENHANCEMENTS-PLAN.md for easy copy-paste to agents.
 
 Usage:
-    python copy_feature.py 0.1          # Extract Feature 0.1
-    python copy_feature.py 1.5          # Extract Feature 1.5
-    python copy_feature.py 2.1 --save   # Save to file
-    python copy_feature.py --list       # List all available features
+    python copy_feature.py 0.1              # Extract Feature 0.1 from IMPLEMENTATION_PLAN
+    python copy_feature.py 1.5              # Extract Feature 1.5 from IMPLEMENTATION_PLAN
+    python copy_feature.py -e 1.1           # Extract Enhancement 1.1 from ENHANCEMENTS-PLAN
+    python copy_feature.py --enhancements 2.1   # Same as above
+    python copy_feature.py 2.1 --save       # Save to file
+    python copy_feature.py --list           # List all features from IMPLEMENTATION_PLAN
+    python copy_feature.py -e --list        # List all enhancements from ENHANCEMENTS-PLAN
+
 """
 
 import re
@@ -18,28 +22,37 @@ import os
 from pathlib import Path
 
 
-def get_plan_file():
-    """Get the path to IMPLEMENTATION_PLAN.md"""
+# Plan file types
+IMPLEMENTATION_PLAN = "implementation"
+ENHANCEMENTS_PLAN = "enhancements"
+
+
+def get_plan_file(plan_type=IMPLEMENTATION_PLAN):
+    """Get the path to the appropriate plan file"""
     script_dir = Path(__file__).parent
-    plan_file = script_dir.parent / "docs" / "IMPLEMENTATION_PLAN.md"
+
+    if plan_type == ENHANCEMENTS_PLAN:
+        plan_file = script_dir.parent / "docs" / "ENHANCEMENTS-PLAN.md"
+    else:
+        plan_file = script_dir.parent / "docs" / "IMPLEMENTATION_PLAN.md"
 
     if not plan_file.exists():
-        print(f"Error: IMPLEMENTATION_PLAN.md not found at {plan_file}")
+        print(f"Error: Plan file not found at {plan_file}")
         sys.exit(1)
 
     return plan_file
 
 
-def read_plan():
+def read_plan(plan_type=IMPLEMENTATION_PLAN):
     """Read the entire plan file"""
-    plan_file = get_plan_file()
+    plan_file = get_plan_file(plan_type)
     with open(plan_file, 'r') as f:
         return f.read()
 
 
-def extract_general_principles():
+def extract_general_principles(plan_type=IMPLEMENTATION_PLAN):
     """Extract Agent Guidelines & Best Practices section"""
-    plan = read_plan()
+    plan = read_plan(plan_type)
 
     # Find the section between "## Agent Guidelines & Best Practices" and the next section
     pattern = r"## Agent Guidelines & Best Practices\n\n(.*?)\n---\n"
@@ -50,9 +63,9 @@ def extract_general_principles():
     return None
 
 
-def extract_project_structure():
+def extract_project_structure(plan_type=IMPLEMENTATION_PLAN):
     """Extract Project Structure section"""
-    plan = read_plan()
+    plan = read_plan(plan_type)
 
     # Find the section between "## Project Structure" and the next major section
     pattern = r"## Project Structure\n\n(.*?)\n---"
@@ -63,22 +76,12 @@ def extract_project_structure():
     return None
 
 
-def extract_feature(feature_id):
+def extract_implementation_feature(feature_id):
     """
-    Extract feature section and agent prompt by feature ID.
-
-    Returns: {
-        'id': '0.1',
-        'title': 'Initialize Project Structure',
-        'time': '30min',
-        'files': ['...'],
-        'description': '...',
-        'agent_prompt': '...',
-        'general_principles': '...',
-        'project_structure': '...'
-    }
+    Extract feature section from IMPLEMENTATION_PLAN.md.
+    Pattern: #### Feature X.Y: Title
     """
-    plan = read_plan()
+    plan = read_plan(IMPLEMENTATION_PLAN)
 
     # Escape dots in regex
     escaped_id = feature_id.replace('.', r'\.')
@@ -130,14 +133,133 @@ def extract_feature(feature_id):
         'files': files,
         'description': description,
         'agent_prompt': agent_prompt,
-        'general_principles': extract_general_principles(),
-        'project_structure': extract_project_structure()
+        'general_principles': extract_general_principles(IMPLEMENTATION_PLAN),
+        'project_structure': extract_project_structure(IMPLEMENTATION_PLAN),
+        'plan_type': IMPLEMENTATION_PLAN
     }
 
 
-def list_features():
-    """List all available features"""
-    plan = read_plan()
+def extract_enhancement(enhancement_id):
+    """
+    Extract enhancement section from ENHANCEMENTS-PLAN.md.
+    Pattern: ### X.Y Title
+    """
+    plan = read_plan(ENHANCEMENTS_PLAN)
+
+    # Escape dots in regex
+    escaped_id = enhancement_id.replace('.', r'\.')
+
+    # Pattern to match enhancement header (### X.Y Title)
+    enhancement_pattern = rf"### {escaped_id} (.*?)\n"
+    match = re.search(enhancement_pattern, plan)
+
+    if not match:
+        return None
+
+    enhancement_title = match.group(1)
+    start_pos = match.start()
+
+    # Find the end of this enhancement (next enhancement or next priority section)
+    next_pattern = r"### \d+\.\d+|## Priority \d+:|## Implementation Order|## Technical Notes"
+    next_match = re.search(next_pattern, plan[start_pos + 10:])
+
+    if next_match:
+        end_pos = start_pos + 10 + next_match.start()
+    else:
+        end_pos = len(plan)
+
+    enhancement_section = plan[start_pos:end_pos]
+
+    # Extract Goal
+    goal_match = re.search(r"\*\*Goal\*\*: (.*?)\n", enhancement_section)
+    goal = goal_match.group(1) if goal_match else ""
+
+    # Extract Files
+    files_section = re.search(r"\*\*Files\*\*:\n((?:- .*?\n)+)", enhancement_section)
+    files = []
+    if files_section:
+        files_text = files_section.group(1)
+        files = [f.strip('- `').strip('`').strip() for f in files_text.split('\n') if f.strip()]
+
+    # Extract Implementation section
+    impl_match = re.search(r"\*\*Implementation\*\*:\n((?:- .*?\n)+)", enhancement_section)
+    implementation = ""
+    if impl_match:
+        implementation = impl_match.group(1).strip()
+
+    # Extract Investigation section (for bugs)
+    invest_match = re.search(r"\*\*Investigation(?:\sneeded)?\*\*:?\n((?:- .*?\n)+)", enhancement_section)
+    investigation = ""
+    if invest_match:
+        investigation = invest_match.group(1).strip()
+
+    # Extract Content outline (for lessons)
+    content_match = re.search(r"\*\*Content outline\*\*:\n((?:\d+\. .*?\n)+)", enhancement_section)
+    content_outline = ""
+    if content_match:
+        content_outline = content_match.group(1).strip()
+
+    # Build a comprehensive description/prompt from available sections
+    description_parts = []
+    if goal:
+        description_parts.append(f"Goal: {goal}")
+    if implementation:
+        description_parts.append(f"\nImplementation:\n{implementation}")
+    if investigation:
+        description_parts.append(f"\nInvestigation:\n{investigation}")
+    if content_outline:
+        description_parts.append(f"\nContent outline:\n{content_outline}")
+
+    description = "\n".join(description_parts)
+
+    # Build agent prompt from the full section
+    agent_prompt = f"""You are implementing Enhancement {enhancement_id}: {enhancement_title}
+
+CONTEXT:
+- This is part of the Educational MVC App enhancements
+- See ENHANCEMENTS-PLAN.md for full context
+- Follow the Agent Guidelines & Best Practices
+
+TASK:
+{description}
+
+FILES TO MODIFY:
+{chr(10).join('- ' + f for f in files) if files else '- See enhancement details'}
+
+IMPORTANT:
+- Keep changes focused on the specific enhancement
+- Test your changes before committing
+- Ask if unclear about implementation approach
+
+When complete:
+- Commit with message: "feat: {enhancement_title.lower()}" or "fix: {enhancement_title.lower()}"
+- Ask user to test the changes
+"""
+
+    return {
+        'id': enhancement_id,
+        'title': enhancement_title,
+        'time': "Variable",
+        'files': files,
+        'description': description,
+        'agent_prompt': agent_prompt,
+        'general_principles': extract_general_principles(ENHANCEMENTS_PLAN),
+        'project_structure': extract_project_structure(ENHANCEMENTS_PLAN),
+        'plan_type': ENHANCEMENTS_PLAN
+    }
+
+
+def extract_feature(feature_id, plan_type=IMPLEMENTATION_PLAN):
+    """Extract feature from appropriate plan file"""
+    if plan_type == ENHANCEMENTS_PLAN:
+        return extract_enhancement(feature_id)
+    else:
+        return extract_implementation_feature(feature_id)
+
+
+def list_implementation_features():
+    """List all features from IMPLEMENTATION_PLAN.md"""
+    plan = read_plan(IMPLEMENTATION_PLAN)
 
     # Find all features
     pattern = r"#### Feature ([\d\.]+): (.*?)\n\*\*Time\*\*: (.*?)\n"
@@ -148,7 +270,7 @@ def list_features():
         return
 
     print("\n" + "=" * 80)
-    print("AVAILABLE FEATURES")
+    print("IMPLEMENTATION PLAN FEATURES")
     print("=" * 80 + "\n")
 
     current_phase = None
@@ -182,13 +304,66 @@ def list_features():
     print("Example: python copy_feature.py 1.5\n")
 
 
+def list_enhancements():
+    """List all enhancements from ENHANCEMENTS-PLAN.md"""
+    plan = read_plan(ENHANCEMENTS_PLAN)
+
+    # Find all enhancements (### X.Y Title pattern)
+    pattern = r"### (\d+\.\d+) (.*?)\n"
+    matches = re.findall(pattern, plan)
+
+    if not matches:
+        print("No enhancements found in ENHANCEMENTS-PLAN.md")
+        return
+
+    print("\n" + "=" * 80)
+    print("ENHANCEMENTS PLAN")
+    print("=" * 80 + "\n")
+
+    current_priority = None
+
+    for enhancement_id, title in matches:
+        # Extract priority from enhancement ID (e.g., "1" from "1.1")
+        priority = enhancement_id.split('.')[0]
+
+        if priority != current_priority:
+            current_priority = priority
+            priority_names = {
+                "1": "Priority 1: DevPanel Improvements",
+                "2": "Priority 2: Flow Diagram Enhancement",
+                "3": "Priority 3: UI/UX Fixes",
+                "4": "Priority 4: Bug Fixes",
+                "5": "Priority 5: Lesson Content Updates"
+            }
+            print(f"\n{priority_names.get(priority, f'Priority {priority}')}")
+            print("-" * 80)
+
+        print(f"  {enhancement_id:>4}  {title:<60}")
+
+    print("\n" + "=" * 80)
+    print(f"Total: {len(matches)} enhancements")
+    print("=" * 80 + "\n")
+    print("Usage: python copy_feature.py -e <enhancement_id>")
+    print("Example: python copy_feature.py -e 1.1\n")
+
+
+def list_features(plan_type=IMPLEMENTATION_PLAN):
+    """List features from appropriate plan file"""
+    if plan_type == ENHANCEMENTS_PLAN:
+        list_enhancements()
+    else:
+        list_implementation_features()
+
+
 def format_output(feature):
     """Format feature for display and copying"""
     output = []
 
+    plan_name = "ENHANCEMENTS PLAN" if feature['plan_type'] == ENHANCEMENTS_PLAN else "IMPLEMENTATION PLAN"
+
     # Include General Principles and Project Structure at the top
     output.append("\n" + "=" * 80)
-    output.append("AGENT GUIDELINES & PROJECT CONTEXT")
+    output.append(f"AGENT GUIDELINES & PROJECT CONTEXT ({plan_name})")
     output.append("=" * 80)
     output.append("Read these sections carefully - they apply to all features.\n")
 
@@ -203,8 +378,9 @@ def format_output(feature):
         output.append("\n")
 
     # Now the specific feature
+    feature_type = "ENHANCEMENT" if feature['plan_type'] == ENHANCEMENTS_PLAN else "FEATURE"
     output.append("=" * 80)
-    output.append(f"FEATURE {feature['id']}: {feature['title']}")
+    output.append(f"{feature_type} {feature['id']}: {feature['title']}")
     output.append("=" * 80 + "\n")
 
     if feature['description']:
@@ -235,7 +411,8 @@ def format_output(feature):
 def save_to_file(feature, filename=None):
     """Save feature to file"""
     if not filename:
-        filename = f"feature_{feature['id'].replace('.', '_')}.txt"
+        prefix = "enhancement" if feature['plan_type'] == ENHANCEMENTS_PLAN else "feature"
+        filename = f"{prefix}_{feature['id'].replace('.', '_')}.txt"
 
     output_dir = Path(__file__).parent / "output"
     output_dir.mkdir(exist_ok=True)
@@ -248,32 +425,76 @@ def save_to_file(feature, filename=None):
     return filepath
 
 
+def parse_args():
+    """Parse command line arguments"""
+    args = sys.argv[1:]
+
+    plan_type = IMPLEMENTATION_PLAN
+    feature_id = None
+    save_flag = False
+    list_flag = False
+
+    i = 0
+    while i < len(args):
+        arg = args[i]
+
+        if arg in ['-e', '--enhancements']:
+            plan_type = ENHANCEMENTS_PLAN
+        elif arg == '--save':
+            save_flag = True
+        elif arg == '--list':
+            list_flag = True
+        elif not arg.startswith('-'):
+            feature_id = arg
+
+        i += 1
+
+    return {
+        'plan_type': plan_type,
+        'feature_id': feature_id,
+        'save_flag': save_flag,
+        'list_flag': list_flag
+    }
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
-        list_features()
+        print("\nAvailable options:")
+        print("  --list              List all features/enhancements")
+        print("  -e, --enhancements  Use ENHANCEMENTS-PLAN.md instead of IMPLEMENTATION_PLAN.md")
+        print("  --save              Save output to file")
+        print("\nExamples:")
+        print("  python copy_feature.py --list           # List implementation features")
+        print("  python copy_feature.py -e --list        # List enhancements")
+        print("  python copy_feature.py 1.5              # Get implementation feature 1.5")
+        print("  python copy_feature.py -e 1.1           # Get enhancement 1.1")
         sys.exit(0)
 
-    command = sys.argv[1]
+    args = parse_args()
 
     # List command
-    if command == "--list":
-        list_features()
+    if args['list_flag']:
+        list_features(args['plan_type'])
         sys.exit(0)
 
-    # Feature ID provided
-    feature_id = command
-
-    # Check if --save flag is provided
-    save_flag = "--save" in sys.argv
+    # Feature ID required for extraction
+    if not args['feature_id']:
+        print("Error: Feature/enhancement ID required", file=sys.stderr)
+        print("Use --list to see available features/enhancements", file=sys.stderr)
+        sys.exit(1)
 
     # Extract feature
-    feature = extract_feature(feature_id)
+    feature = extract_feature(args['feature_id'], args['plan_type'])
 
     if not feature or not feature['agent_prompt']:
-        print(f"Error: Feature {feature_id} not found or has no agent prompt", file=sys.stderr)
-        print("Use --list to see all available features:", file=sys.stderr)
-        print("  python copy_feature.py --list", file=sys.stderr)
+        plan_name = "ENHANCEMENTS-PLAN.md" if args['plan_type'] == ENHANCEMENTS_PLAN else "IMPLEMENTATION_PLAN.md"
+        print(f"Error: Feature/enhancement {args['feature_id']} not found in {plan_name}", file=sys.stderr)
+        print("Use --list to see all available features/enhancements:", file=sys.stderr)
+        if args['plan_type'] == ENHANCEMENTS_PLAN:
+            print("  python copy_feature.py -e --list", file=sys.stderr)
+        else:
+            print("  python copy_feature.py --list", file=sys.stderr)
         sys.exit(1)
 
     # Display output (clean, no extra messages for piping to clipboard)
@@ -281,7 +502,7 @@ def main():
     print(output, end='')
 
     # Save to file if requested (separate from stdout)
-    if save_flag:
+    if args['save_flag']:
         filepath = save_to_file(feature)
         print(f"\n✓ Saved to: {filepath}", file=sys.stderr)
 
