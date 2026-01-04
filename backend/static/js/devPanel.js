@@ -1172,8 +1172,22 @@ class DevPanel {
             html += `<code class="language-html">${highlightedHtml}</code>`;
             html += '</pre>';
         } else {
-            html += '<pre style="margin: 0; background: #1e1e1e; padding: 8px; border-radius: 4px; overflow-x: auto;">';
-            html += this.escapeHtml(JSON.stringify(value, null, 2));
+            // For other values (dicts, lists, etc.), format as JSON with syntax highlighting
+            const jsonStr = JSON.stringify(value, null, 2);
+
+            let highlightedJson;
+            if (typeof hljs !== 'undefined') {
+                try {
+                    highlightedJson = hljs.highlight(jsonStr, { language: 'json' }).value;
+                } catch (e) {
+                    highlightedJson = this.escapeHtml(jsonStr);
+                }
+            } else {
+                highlightedJson = this.escapeHtml(jsonStr);
+            }
+
+            html += '<pre class="hljs" style="margin: 0; padding: 8px; border-radius: 4px; overflow-x: auto;">';
+            html += `<code class="language-json">${highlightedJson}</code>`;
             html += '</pre>';
         }
 
