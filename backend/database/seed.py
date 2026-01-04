@@ -26,6 +26,86 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(__file__), 'educational_mvc.db')
 )
 
+# Schema file location
+SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema.sql')
+
+
+def init_database() -> None:
+    """
+    Initialize the database by creating tables from schema.sql.
+    
+    This function:
+    - Reads the schema.sql file
+    - Executes all CREATE TABLE and CREATE INDEX statements
+    - Uses IF NOT EXISTS to safely run multiple times
+    
+    Called automatically before seeding data.
+    Covered in: Lesson 2 (database setup)
+    """
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Enable foreign key enforcement (required for SQLite)
+        cursor.execute("PRAGMA foreign_keys = ON;")
+        
+        print("Initializing database schema...")
+        
+        # Read and execute schema.sql
+        with open(SCHEMA_PATH, 'r') as schema_file:
+            schema_sql = schema_file.read()
+            cursor.executescript(schema_sql)
+        
+        conn.commit()
+        print("✓ Database schema initialized")
+        
+    except sqlite3.Error as e:
+        print(f"Error initializing database: {e}")
+        if conn:
+            conn.rollback()
+        raise
+    except FileNotFoundError:
+        print(f"Error: schema.sql not found at {SCHEMA_PATH}")
+        raise
+    finally:
+        if conn:
+            conn.close()
+
+
+def clear_data() -> None:
+    """
+    Clear all existing data from the database.
+    
+    This ensures a clean slate before seeding.
+    Tables are preserved (schema intact), only data is removed.
+    """
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Enable foreign key enforcement
+        cursor.execute("PRAGMA foreign_keys = ON;")
+        
+        print("Clearing existing data...")
+        
+        # Delete in correct order (tasks first due to foreign keys)
+        cursor.execute("DELETE FROM tasks")
+        cursor.execute("DELETE FROM users")
+        
+        conn.commit()
+        print("✓ Existing data cleared")
+        
+    except sqlite3.Error as e:
+        print(f"Error clearing data: {e}")
+        if conn:
+            conn.rollback()
+        raise
+    finally:
+        if conn:
+            conn.close()
+
 
 def insert_seed_data() -> None:
     """
@@ -201,7 +281,27 @@ if __name__ == "__main__":
     Run this script directly to seed the database:
         python backend/database/seed.py
 
-    Note: This will add seed data to existing database.
-    To reset completely, delete educational_mvc.db first.
+    This script will:
+    1. Create database tables from schema.sql (if they don't exist)
+    2. Clear any existing data
+    3. Insert fresh seed data
+    
+    Safe to run multiple times - will reset to clean state each time.
     """
+    print("=" * 60)
+    print("DATABASE SETUP")
+    print("=" * 60)
+    
+    # Step 1: Initialize database schema
+    init_database()
+    
+    # Step 2: Clear existing data
+    clear_data()
+    
+    # Step 3: Insert seed data
     insert_seed_data()
+    
+    print("\n" + "=" * 60)
+    print("SETUP COMPLETE!")
+    print("=" * 60)
+    print("You can now start the application with: npm start")
