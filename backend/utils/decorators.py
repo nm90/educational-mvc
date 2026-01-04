@@ -106,6 +106,7 @@ def log_method_call(func: Callable) -> Callable:
         # Extract method name for logging
         # For instance methods, args[0] is 'self' - extract class from it
         # For static methods, use __qualname__ which has format "ClassName.method_name"
+        is_controller_method = False
         if args and hasattr(args[0], '__class__') and \
            hasattr(args[0].__class__, func.__name__):
             # Instance method: include class name
@@ -117,14 +118,31 @@ def log_method_call(func: Callable) -> Callable:
             method_name = func.__qualname__
             logged_args = args
         else:
-            # Regular function (likely a Flask route handler)
+            # Regular function (likely a Flask route handler / controller method)
             # Use request.endpoint for qualified name (e.g., "users.create", "tasks.index")
             # This makes controller methods show up properly in the Method Calls list
+            is_controller_method = True
             try:
                 method_name = request.endpoint or func.__name__
             except RuntimeError:
                 method_name = func.__name__
             logged_args = args
+
+        # For controller methods, log at the START of execution
+        # This is critical because success_response() captures tracking data before
+        # the controller method finishes, so we need to log before calling the function
+        # We'll store the log entry index to update duration after execution
+        controller_log_index = None
+        if is_controller_method and hasattr(g, 'tracking'):
+            controller_log_index = len(g.tracking['method_calls'])
+            _log_method_call(
+                method_name=method_name,
+                args=_sanitize_args(logged_args),
+                kwargs=_sanitize_kwargs(kwargs),
+                return_value='[pending]',
+                duration_ms=0,
+                exception=None
+            )
 
         # Record start time (using perf_counter for more accurate timing)
         # perf_counter is better than time.time() because:
@@ -146,33 +164,47 @@ def log_method_call(func: Callable) -> Callable:
             exception_occurred = e
             # Calculate duration before re-raising
             duration_ms = (time.perf_counter() - start_time) * 1000
-            # Log the exception call
-            _log_method_call(
-                method_name=method_name,
-                args=_sanitize_args(logged_args),
-                kwargs=_sanitize_kwargs(kwargs),
-                return_value=None,
-                duration_ms=round(duration_ms, 2),
-                exception=str(e)
-            )
+
+            # For controller methods, update the existing log entry
+            if is_controller_method and controller_log_index is not None:
+                if hasattr(g, 'tracking') and controller_log_index < len(g.tracking['method_calls']):
+                    g.tracking['method_calls'][controller_log_index]['duration_ms'] = round(duration_ms, 2)
+                    g.tracking['method_calls'][controller_log_index]['exception'] = str(e)
+                    g.tracking['method_calls'][controller_log_index]['return_value'] = None
+            else:
+                # Log the exception call for non-controller methods
+                _log_method_call(
+                    method_name=method_name,
+                    args=_sanitize_args(logged_args),
+                    kwargs=_sanitize_kwargs(kwargs),
+                    return_value=None,
+                    duration_ms=round(duration_ms, 2),
+                    exception=str(e)
+                )
             # Re-raise the exception so normal error handling continues
             raise
 
         # Calculate duration in milliseconds
         duration_ms = (time.perf_counter() - start_time) * 1000
 
-        # Prepare return value for logging (truncate if too large)
-        logged_return_value = _truncate_value(result)
+        # For controller methods, update the existing log entry with final data
+        if is_controller_method and controller_log_index is not None:
+            if hasattr(g, 'tracking') and controller_log_index < len(g.tracking['method_calls']):
+                g.tracking['method_calls'][controller_log_index]['duration_ms'] = round(duration_ms, 2)
+                g.tracking['method_calls'][controller_log_index]['return_value'] = '[Response]'
+        else:
+            # Prepare return value for logging (truncate if too large)
+            logged_return_value = _truncate_value(result)
 
-        # Log the successful call
-        _log_method_call(
-            method_name=method_name,
-            args=_sanitize_args(logged_args),
-            kwargs=_sanitize_kwargs(kwargs),
-            return_value=logged_return_value,
-            duration_ms=round(duration_ms, 2),
-            exception=None
-        )
+            # Log the successful call for non-controller methods
+            _log_method_call(
+                method_name=method_name,
+                args=_sanitize_args(logged_args),
+                kwargs=_sanitize_kwargs(kwargs),
+                return_value=logged_return_value,
+                duration_ms=round(duration_ms, 2),
+                exception=None
+            )
 
         # Return the original result (not the truncated version)
         return result
