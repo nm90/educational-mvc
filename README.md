@@ -16,6 +16,13 @@ docker-compose up
 # Database and logs persist in Docker volumes
 ```
 
+**Linux Users:** If you get a permission error, add your user to the docker group:
+
+```bash
+sudo usermod -aG docker $USER
+newgrp docker  # Apply group changes immediately
+```
+
 For detailed Docker instructions, see [DOCKER.md](DOCKER.md).
 
 ### Local Setup (Alternative)
