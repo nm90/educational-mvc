@@ -732,6 +732,14 @@ class DevPanel {
                     this.toggleNode(btn);
                 }
             });
+
+            // Attach click listener to sibling content element (expanded click area)
+            const content = btn.parentElement.querySelector('.tree-node-content');
+            if (content) {
+                content.addEventListener('click', (e) => {
+                    this.toggleNode(btn);
+                });
+            }
         });
 
         // Search box listener
@@ -1133,6 +1141,18 @@ class DevPanel {
             });
         });
 
+        // Attach click listeners to header rows (expanded click area)
+        const headers = list.querySelectorAll('.method-call-header');
+        headers.forEach(header => {
+            header.addEventListener('click', (e) => {
+                // Find the toggle button in the same parent node
+                const toggleBtn = header.parentElement.querySelector('.method-call-toggle');
+                if (toggleBtn) {
+                    this.toggleMethodNode(toggleBtn);
+                }
+            });
+        });
+
         // Search box listener
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
@@ -1527,6 +1547,18 @@ class DevPanel {
             });
         });
 
+        // Attach click listeners to header rows (expanded click area)
+        const headers = list.querySelectorAll('.db-query-header');
+        headers.forEach(header => {
+            header.addEventListener('click', (e) => {
+                // Find the toggle button in the same parent node
+                const toggleBtn = header.parentElement.querySelector('.db-query-toggle');
+                if (toggleBtn) {
+                    this.toggleQueryNode(toggleBtn);
+                }
+            });
+        });
+
         // Filter checkbox listener
         if (filterCheckbox) {
             filterCheckbox.addEventListener('change', () => {
@@ -1662,6 +1694,18 @@ class DevPanel {
                 if (e.key === ' ' || e.key === 'Enter') {
                     e.preventDefault();
                     this.toggleErrorNode(btn);
+                }
+            });
+        });
+
+        // Attach click listeners to header rows (expanded click area)
+        const headers = list.querySelectorAll('.error-header');
+        headers.forEach(header => {
+            header.addEventListener('click', (e) => {
+                // Find the toggle button in the same parent node
+                const toggleBtn = header.parentElement.querySelector('.error-toggle');
+                if (toggleBtn) {
+                    this.toggleErrorNode(toggleBtn);
                 }
             });
         });

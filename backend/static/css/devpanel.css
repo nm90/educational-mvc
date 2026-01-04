@@ -535,6 +535,11 @@
 
 .tree-node-content {
     display: inline;
+    cursor: pointer;
+}
+
+.tree-node-content:hover .tree-node-key {
+    color: #b8e0ff;
 }
 
 .tree-node-key {
@@ -705,6 +710,16 @@
     justify-content: space-between;
     align-items: center;
     gap: 10px;
+    cursor: pointer;
+    flex: 1;
+}
+
+.method-call-header:hover {
+    color: #fff;
+}
+
+.method-call-header:hover .method-call-name {
+    color: #b8e0ff;
 }
 
 .method-call-name {
@@ -845,6 +860,12 @@
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
+    cursor: pointer;
+    flex: 1;
+}
+
+.db-query-header:hover .db-query-preview {
+    color: #6ee7c1;
 }
 
 .db-query-preview {
@@ -1446,6 +1467,11 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 10px;
+    cursor: pointer;
+}
+
+.error-header:hover .error-message {
+    color: #fff;
 }
 
 .error-type-badge {
