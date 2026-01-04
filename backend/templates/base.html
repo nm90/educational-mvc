@@ -27,6 +27,9 @@
     <!-- Lesson Panel Styles (Tutorial Mode sidebar) -->
     <link rel="stylesheet" href="/static/css/lessonPanel.css">
 
+    <!-- Mode Manager Styles (Tutorial/Exploration toggle) -->
+    <link rel="stylesheet" href="/static/css/modeManager.css">
+
     <!-- Minimal inline CSS for readability -->
     <style>
         /* Basic reset and typography */
@@ -372,7 +375,19 @@
 <body>
     <!-- Header - App title and branding -->
     <header>
-        <h1>Educational MVC App</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1>Educational MVC App</h1>
+            <!-- Mode Toggle - Switch between Tutorial and Exploration modes -->
+            <div class="mode-toggle-container">
+                <span class="mode-label">📚 Tutorial</span>
+                <div class="mode-switch-wrapper">
+                    <input type="checkbox" id="mode-switch" aria-label="Toggle between Tutorial and Exploration modes">
+                    <label for="mode-switch" class="toggle-switch"></label>
+                </div>
+                <span class="mode-label">🔬 Exploration</span>
+                <span class="mode-badge" id="current-mode-badge">Tutorial Mode</span>
+            </div>
+        </div>
     </header>
 
     <!-- Navigation - Links to main sections of the app -->
@@ -418,6 +433,9 @@
     </footer>
 
     <!-- JavaScript for async form handling -->
+    <!-- Mode Manager - Manages Tutorial/Exploration mode switching -->
+    <script src="/static/js/modeManager.js"></script>
+
     <!-- MVC API Client - Handles fetch() requests with __DEBUG__ extraction -->
     <script src="/static/js/mvc-api.js"></script>
 
@@ -433,22 +451,44 @@
 
     <script>
         /**
-         * Initialize Lesson Engine
+         * Initialize Mode Manager and Lesson Engine
          *
-         * Creates global lessonEngine instance if tutorial mode is enabled
-         * Listens for mode toggle changes to load lessons
+         * MVC Flow:
+         * 1. Initialize ModeManager (loads saved mode preference)
+         * 2. ModeManager applies mode (shows/hides UI components)
+         * 3. Initialize LessonEngine
+         * 4. Listen for mode changes to adjust lesson panel visibility
          *
-         * Usage from console:
-         *   lessonEngine.loadLesson(1)
-         *   lessonEngine.nextStep()
-         *   lessonEngine.previousStep()
+         * Mode Manager Usage:
+         *   window.modeManager.getCurrentMode()
+         *   window.modeManager.isTutorialMode()
+         *   window.modeManager.isExplorationMode()
+         *   window.modeManager.setMode('exploration')
+         *
+         * Lesson Engine Usage:
+         *   window.lessonEngine.loadLesson(1)
+         *   window.lessonEngine.nextStep()
+         *   window.lessonEngine.previousStep()
          */
+
+        // Initialize Mode Manager first (controls UI visibility)
+        window.modeManager = new ModeManager();
+
+        // Initialize Lesson Engine
         window.lessonEngine = new LessonEngine();
 
-        // Check if tutorial mode is enabled in localStorage
+        // Update mode badge when mode changes
+        window.modeManager.onModeChange((mode) => {
+            const badge = document.getElementById('current-mode-badge');
+            if (badge) {
+                const displayName = mode === 'tutorial' ? 'Tutorial Mode' : 'Exploration Mode';
+                badge.textContent = displayName;
+            }
+        });
+
+        // Load lesson content when in tutorial mode
         function initializeTutorialMode() {
-            const tutorialMode = localStorage.getItem('tutorialMode') !== 'false';
-            if (tutorialMode && window.lessonEngine) {
+            if (window.modeManager.isTutorialMode() && window.lessonEngine) {
                 // Load the first lesson if no lesson is currently loaded
                 const progress = window.lessonEngine.loadProgress();
                 if (!progress.currentLesson) {
@@ -471,6 +511,16 @@
         } else {
             initializeTutorialMode();
         }
+
+        // Listen for mode changes and update UI accordingly
+        document.addEventListener('modeChanged', (event) => {
+            console.log('📢 Mode changed event received:', event.detail.mode);
+
+            // If switching to tutorial mode, load lessons
+            if (event.detail.mode === 'tutorial') {
+                initializeTutorialMode();
+            }
+        });
     </script>
 </body>
 </html>

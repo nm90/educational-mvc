@@ -1,0 +1,235 @@
+/**
+ * Mode Manager Styles
+ *
+ * MVC Role: VIEW (CSS Styling)
+ * - Defines visual appearance of the mode toggle component
+ * - Handles layout changes for Tutorial vs Exploration modes
+ * - Smooth transitions between modes
+ *
+ * Learning Purpose:
+ * - Shows how CSS can respond to application state
+ * - Demonstrates toggle switch styling
+ * - Uses CSS transitions for smooth visual feedback
+ *
+ * Lesson Reference:
+ * - Feature 4.1: Mode Switcher Component
+ */
+
+/* Mode toggle container in header */
+.mode-toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 15px;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.mode-toggle-container:hover {
+    background-color: rgba(0, 0, 0, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Mode label text */
+.mode-label {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+/* Current mode indicator badge */
+.mode-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+body.exploration-mode .mode-badge {
+    background-color: #3498db;
+    color: white;
+}
+
+body.tutorial-mode .mode-badge {
+    background-color: #2ecc71;
+    color: white;
+}
+
+/* Toggle switch container */
+.mode-switch-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+}
+
+/* Toggle switch label */
+.toggle-label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    transition: color 0.3s ease;
+}
+
+/* Hide the actual checkbox */
+#mode-switch {
+    display: none;
+}
+
+/* Toggle switch styling */
+.toggle-switch {
+    position: relative;
+    width: 50px;
+    height: 26px;
+    background-color: #95a5a6;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-radius: 13px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+/* Toggle switch circle/knob */
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Checked state - move switch to right */
+#mode-switch:checked + .toggle-switch {
+    background-color: #3498db;
+    border-color: #2980b9;
+}
+
+#mode-switch:checked + .toggle-switch::after {
+    left: 28px;
+}
+
+/* Focus state for accessibility */
+#mode-switch:focus + .toggle-switch {
+    outline: 2px solid rgba(255, 255, 255, 0.5);
+    outline-offset: 2px;
+}
+
+/* Hover state */
+.toggle-switch:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch:active {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* Mode icons (optional) */
+.mode-icon {
+    font-size: 16px;
+    display: inline-block;
+    transition: transform 0.3s ease;
+}
+
+.mode-toggle-container:hover .mode-icon {
+    transform: scale(1.1);
+}
+
+/* Responsive layout for smaller screens */
+@media (max-width: 768px) {
+    .mode-toggle-container {
+        gap: 8px;
+        padding: 6px 12px;
+    }
+
+    .mode-label {
+        font-size: 12px;
+    }
+
+    .toggle-label {
+        font-size: 11px;
+    }
+
+    .toggle-switch {
+        width: 44px;
+        height: 24px;
+    }
+
+    .toggle-switch::after {
+        width: 18px;
+        height: 18px;
+    }
+
+    #mode-switch:checked + .toggle-switch::after {
+        left: 24px;
+    }
+}
+
+/* Mode-specific body styling */
+body.tutorial-mode {
+    /* Tutorial mode adjustments - lesson panel is visible by default */
+}
+
+body.exploration-mode {
+    /* Exploration mode adjustments - lesson panel is hidden */
+}
+
+/* Transition class for smooth mode switches */
+.mode-transitioning {
+    transition: all 0.3s ease;
+}
+
+/* Optional: Notification indicator for mode change */
+.mode-change-notification {
+    position: fixed;
+    top: 60px;
+    right: 20px;
+    padding: 12px 16px;
+    background-color: rgba(0, 0, 0, 0.85);
+    color: white;
+    border-radius: 4px;
+    font-size: 14px;
+    z-index: 2000;
+    animation: slideInRight 0.3s ease;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Accessibility: Make sure interactive elements are clear */
+.toggle-switch:focus-visible {
+    outline: 3px solid rgba(255, 255, 255, 0.6);
+    outline-offset: 2px;
+}
+
+/* Dark mode support (if needed in future) */
+@media (prefers-color-scheme: dark) {
+    .mode-toggle-container {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .mode-toggle-container:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+    }
+}
