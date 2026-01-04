@@ -1581,15 +1581,64 @@ class LessonEngine {
     }
 
     /**
+     * Check if event target is within an editable area (code editor)
+     *
+     * Editable areas include:
+     * - textarea elements
+     * - input elements
+     * - contenteditable elements
+     *
+     * @param {EventTarget} target - The event target to check
+     * @returns {boolean} - True if target is within an editable area
+     */
+    isTargetInEditableArea(target) {
+        // Check if target itself is an editable element
+        if (target instanceof HTMLTextAreaElement ||
+            target instanceof HTMLInputElement) {
+            return true;
+        }
+
+        // Check for contenteditable attribute
+        if (target instanceof HTMLElement && target.isContentEditable) {
+            return true;
+        }
+
+        // Check if target is inside a code editor container
+        if (target instanceof HTMLElement) {
+            const codeInput = target.closest('#lesson-code-input');
+            if (codeInput) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Setup keyboard navigation
      *
-     * - Left arrow: Previous step
-     * - Right arrow: Next step
+     * Keyboard shortcuts:
+     * - Left arrow: Previous step (only when focus is outside code editor)
+     * - Right arrow: Next step (only when focus is outside code editor)
+     *
+     * When focus is in a code editor area:
+     * - All arrow key combinations pass through to the editor
+     * - Regular arrows, Ctrl+Arrow, Ctrl+Shift+Arrow all work for editing
+     * - Lesson navigation is disabled to avoid interference with code editing
      *
      * @returns {void}
      */
     setupKeyboardNavigation() {
         document.addEventListener('keydown', (event) => {
+            // Check if we're in an editable area
+            const inEditableArea = this.isTargetInEditableArea(event.target);
+
+            // If in editable area, allow all arrow key combinations for editing
+            if (inEditableArea) {
+                return; // Allow default behavior for all arrow keys
+            }
+
+            // Handle arrow key navigation only when outside editable areas
             if (event.key === 'ArrowLeft') {
                 event.preventDefault();
                 this.previousStep();
