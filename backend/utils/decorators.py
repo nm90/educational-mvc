@@ -191,7 +191,18 @@ def log_method_call(func: Callable) -> Callable:
         if is_controller_method and controller_log_index is not None:
             if hasattr(g, 'tracking') and controller_log_index < len(g.tracking['method_calls']):
                 g.tracking['method_calls'][controller_log_index]['duration_ms'] = round(duration_ms, 2)
-                g.tracking['method_calls'][controller_log_index]['return_value'] = '[Response]'
+                # Capture the actual return value for controller methods
+                # For HTML responses (strings), store the full content for devPanel display
+                # The devPanel will strip HTML comments on the client side
+                if isinstance(result, str):
+                    g.tracking['method_calls'][controller_log_index]['return_value'] = result
+                    g.tracking['method_calls'][controller_log_index]['is_html_response'] = True
+                    # Include template path if available
+                    if hasattr(g, 'tracking') and g.tracking.get('template_path'):
+                        g.tracking['method_calls'][controller_log_index]['template_path'] = g.tracking['template_path']
+                else:
+                    # For non-string responses (redirects, Response objects), use placeholder
+                    g.tracking['method_calls'][controller_log_index]['return_value'] = '[Response Object]'
         else:
             # Prepare return value for logging (truncate if too large)
             logged_return_value = _truncate_value(result)

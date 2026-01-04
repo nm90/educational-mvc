@@ -112,7 +112,8 @@ def init_request_tracking():
             'request_end': None
         },
         'view_data': {},
-        'request_info': {}
+        'request_info': {},
+        'template_path': None  # Stores the template path when using tracked_render_template
     }
 
 
@@ -213,11 +214,14 @@ def after_request(response):
                 'errors': g.tracking['errors'],
                 'timing': g.tracking['timing'],
                 'view_data': g.tracking['view_data'],
-                'request_info': g.tracking.get('request_info', {})
+                'request_info': g.tracking.get('request_info', {}),
+                'template_path': g.tracking.get('template_path')
             }
 
             # Convert to JSON (safe for HTML context)
-            debug_json = json.dumps(debug_object)
+            # We must escape </ sequences to prevent breaking out of script context
+            # e.g., </script> in HTML content would close the script tag prematurely
+            debug_json = json.dumps(debug_object).replace('</', '<\\/')
 
             # Inject before </body> tag
             # Using <script> to define window.__DEBUG__ for JavaScript access
@@ -465,8 +469,9 @@ def tracked_render_template(template_name, **context):
 
     What it does:
     1. Automatically calls track_view_data(context) to log what data the controller passed
-    2. Calls Flask's render_template() with the same arguments
-    3. Returns the rendered template
+    2. Stores the template path for devPanel to reference
+    3. Calls Flask's render_template() with the same arguments
+    4. Returns the rendered template
 
     Benefits of using this:
     - No need to manually call track_view_data() in every controller
@@ -478,10 +483,16 @@ def tracked_render_template(template_name, **context):
     - All context data automatically appears in State Inspector tab
     - Shows exactly what variables were available to the template
     - Tracks the data flow from Controller → View
+    - Template path is available for reference in Method Calls tab
     """
     # Automatically track the context data being passed to the template
     # This allows the State Inspector tab to show what data reached the view
     track_view_data(context)
+
+    # Store the template path for devPanel to reference when displaying HTML
+    # This allows showing "See source: templates/[path].html" in the response
+    if hasattr(g, 'tracking'):
+        g.tracking['template_path'] = template_name
 
     # Render the template with the original Flask function
     return flask_render_template(template_name, **context)

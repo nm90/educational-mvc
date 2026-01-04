@@ -703,6 +703,44 @@ class DevPanel {
     }
 
     /**
+     * stripHtmlComments(html, templatePath) - Strip HTML comments and add source reference
+     *
+     * Removes inline HTML comments from rendered templates to reduce noise in devPanel.
+     * Prepends a single comment pointing to the source file for reference.
+     *
+     * @param {string} html - The HTML string to process
+     * @param {string} templatePath - Path to the template file (e.g., 'users/index.html')
+     * @returns {string} HTML with comments stripped and source reference added
+     *
+     * Example:
+     *   Input:  "<!-- User list --> <div>...</div> <!-- End list -->"
+     *   Output: "<!-- See source: templates/users/index.html for inline comments -->\n<div>...</div>"
+     */
+    stripHtmlComments(html, templatePath) {
+        if (typeof html !== 'string') {
+            return html;
+        }
+
+        // Remove all HTML comments (<!-- ... -->)
+        // This regex matches both single-line and multi-line comments
+        let strippedHtml = html.replace(/<!--[\s\S]*?-->/g, '');
+
+        // Remove empty lines (lines with only whitespace)
+        // This cleans up the gaps left by removed comments
+        strippedHtml = strippedHtml
+            .split('\n')
+            .filter(line => line.trim() !== '')
+            .join('\n');
+
+        // Build the source reference comment
+        const sourceComment = templatePath
+            ? `<!-- See source: templates/${templatePath} for inline comments -->\n`
+            : '<!-- HTML comments stripped for readability -->\n';
+
+        return sourceComment + strippedHtml.trim();
+    }
+
+    /**
      * attachStateInspectorListeners() - Attach event handlers for State Inspector
      *
      * Handles:
@@ -964,7 +1002,15 @@ class DevPanel {
      * @returns {string} HTML for this method call node
      */
     createMethodCallNode(call, index) {
-        const { method_name: method, args = [], kwargs = {}, return_value, duration_ms: duration = 0 } = call;
+        const {
+            method_name: method,
+            args = [],
+            kwargs = {},
+            return_value,
+            duration_ms: duration = 0,
+            is_html_response = false,
+            template_path = null
+        } = call;
         const layer = this.getMethodLayer(method);
         const layerColor = {
             'model': 'layer-model',
@@ -1001,7 +1047,7 @@ class DevPanel {
                     </div>
                     <div class="method-call-section">
                         <div class="method-call-section-title">Return Value</div>
-                        ${this.formatReturnValue(return_value)}
+                        ${this.formatReturnValue(return_value, is_html_response, template_path)}
                     </div>
                 </div>
             </div>
@@ -1089,16 +1135,27 @@ class DevPanel {
     }
 
     /**
-     * formatReturnValue(value) - Format method return value
+     * formatReturnValue(value, isHtmlResponse, templatePath) - Format method return value
+     *
+     * For HTML responses, strips inline comments and adds a source reference.
+     * For other values, displays as formatted JSON.
      *
      * @param {*} value - Return value to display
+     * @param {boolean} isHtmlResponse - Whether this is an HTML response from a controller
+     * @param {string} templatePath - Path to the template file (e.g., 'users/index.html')
      * @returns {string} HTML showing formatted return value
      */
-    formatReturnValue(value) {
+    formatReturnValue(value, isHtmlResponse = false, templatePath = null) {
         let html = '<div class="method-return">';
 
         if (value === null || value === undefined) {
             html += `<span style="color: #858585;">${value === null ? 'null' : 'undefined'}</span>`;
+        } else if (isHtmlResponse && typeof value === 'string') {
+            // For HTML responses, strip comments and add source reference
+            const processedHtml = this.stripHtmlComments(value, templatePath);
+            html += '<pre style="margin: 0; background: #1e1e1e; padding: 8px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;">';
+            html += this.escapeHtml(processedHtml);
+            html += '</pre>';
         } else {
             html += '<pre style="margin: 0; background: #1e1e1e; padding: 8px; border-radius: 4px; overflow-x: auto;">';
             html += this.escapeHtml(JSON.stringify(value, null, 2));

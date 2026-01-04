@@ -1,0 +1,686 @@
+/**
+ * Main Application Styles
+ *
+ * MVC Role: VIEW (Styling)
+ * - Provides consistent styling across all pages
+ * - Organized by component type
+ *
+ * Learning Purpose:
+ * - Demonstrates separation of concerns (CSS in external file)
+ * - Shows how Views handle presentation
+ */
+
+/* =============================================================================
+   ACCESSIBILITY
+   ============================================================================= */
+
+/* Skip-to-content link (visible on focus) */
+.skip-to-content {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background-color: #3498db;
+    color: white;
+    padding: 8px;
+    text-decoration: none;
+    z-index: 100;
+}
+
+.skip-to-content:focus {
+    top: 0;
+}
+
+/* =============================================================================
+   BASE STYLES
+   ============================================================================= */
+
+/* Basic reset and typography */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+    color: #333;
+    background-color: #f9f9f9;
+}
+
+/* =============================================================================
+   HEADER
+   ============================================================================= */
+
+header {
+    background-color: #2c3e50;
+    color: white;
+    padding: 20px;
+    margin: -20px -20px 0 -20px;
+    border-radius: 5px 5px 0 0;
+}
+
+header h1 {
+    margin: 0;
+    color: white;
+    border: none;
+    padding: 0;
+    font-size: 28px;
+}
+
+/* Header flex container for title and mode toggle */
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* =============================================================================
+   NAVIGATION
+   ============================================================================= */
+
+nav {
+    background-color: #34495e;
+    padding: 12px 20px;
+    margin: 0 -20px 20px -20px;
+    display: flex;
+    gap: 30px;
+}
+
+nav a {
+    color: #ecf0f1;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 8px 0;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+nav a:hover {
+    color: white;
+    border-bottom-color: #3498db;
+}
+
+nav a:focus {
+    outline: 2px solid #3498db;
+    outline-offset: 2px;
+    color: white;
+}
+
+nav a.active {
+    color: white;
+    border-bottom-color: #3498db;
+}
+
+/* =============================================================================
+   MAIN CONTENT
+   ============================================================================= */
+
+main {
+    background: white;
+    padding: 25px;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* =============================================================================
+   TYPOGRAPHY
+   ============================================================================= */
+
+h1 {
+    color: #2c3e50;
+    margin-top: 0;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+}
+
+h2 {
+    color: #34495e;
+}
+
+/* Section headings with top margin */
+.section-heading {
+    margin-top: 30px;
+}
+
+/* Links */
+a {
+    color: #3498db;
+}
+
+a:hover {
+    color: #2980b9;
+}
+
+/* =============================================================================
+   FLASH MESSAGES
+   ============================================================================= */
+
+.flash-messages {
+    margin-bottom: 20px;
+}
+
+.flash {
+    padding: 12px 15px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.flash.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.flash.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.flash.info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+/* =============================================================================
+   TABLES
+   ============================================================================= */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+}
+
+th, td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+tr:hover {
+    background-color: #f5f5f5;
+}
+
+/* Fixed width table header for labels */
+.th-label {
+    width: 150px;
+}
+
+/* =============================================================================
+   FORMS
+   ============================================================================= */
+
+form {
+    max-width: 500px;
+}
+
+/* Inline form (e.g., delete button in a row) */
+.form-inline {
+    display: inline;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+input[type="text"],
+input[type="email"] {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+input:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Select/dropdown styling */
+select {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+select:focus {
+    outline: 2px solid #3498db;
+    outline-offset: -1px;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Textarea styling */
+textarea {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    min-height: 100px;
+    font-family: inherit;
+    transition: all 0.2s ease;
+}
+
+textarea:focus {
+    outline: 2px solid #3498db;
+    outline-offset: -1px;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Form error state */
+.form-group.error input,
+.form-group.error select,
+.form-group.error textarea {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.1);
+}
+
+.form-error {
+    color: #dc3545;
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+/* Error field highlighting for form validation feedback */
+.error-field {
+    border-color: #e74c3c !important;
+    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2) !important;
+}
+
+/* =============================================================================
+   BUTTONS
+   ============================================================================= */
+
+.btn {
+    display: inline-block;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn:focus {
+    outline: 2px solid #3498db;
+    outline-offset: 2px;
+}
+
+.btn-primary {
+    background-color: #3498db;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #2980b9;
+    color: white;
+}
+
+.btn-primary:focus {
+    outline: 2px solid #2980b9;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.3);
+}
+
+.btn-secondary {
+    background-color: #95a5a6;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #7f8c8d;
+    color: white;
+}
+
+.btn-secondary:focus {
+    outline: 2px solid #7f8c8d;
+    box-shadow: 0 0 0 3px rgba(149, 165, 166, 0.3);
+}
+
+.btn-danger {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #c0392b;
+    color: white;
+}
+
+.btn-danger:focus {
+    outline: 2px solid #c0392b;
+    box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.3);
+}
+
+/* =============================================================================
+   ACTION LINKS
+   ============================================================================= */
+
+.actions a {
+    margin-right: 10px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.actions a:focus {
+    outline: 2px solid #3498db;
+    background-color: rgba(52, 152, 219, 0.1);
+}
+
+/* =============================================================================
+   BADGES
+   ============================================================================= */
+
+.badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+/* Status badge colors */
+.badge-status-todo {
+    background-color: #e8e8e8;
+    color: #333;
+}
+
+.badge-status-in-progress {
+    background-color: #cce5ff;
+    color: #0044cc;
+}
+
+.badge-status-done {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+/* Priority badge colors */
+.badge-priority-low {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.badge-priority-medium {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.badge-priority-high {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* =============================================================================
+   UTILITY CLASSES
+   ============================================================================= */
+
+.text-muted {
+    color: #7f8c8d;
+}
+
+.mt-20 {
+    margin-top: 20px;
+}
+
+/* =============================================================================
+   FOOTER
+   ============================================================================= */
+
+footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+    text-align: center;
+    color: #7f8c8d;
+    font-size: 14px;
+}
+
+footer p {
+    margin: 5px 0;
+}
+
+/* =============================================================================
+   ANIMATIONS
+   ============================================================================= */
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(400px);
+    }
+}
+
+/* =============================================================================
+   TOAST NOTIFICATIONS
+   ============================================================================= */
+
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    max-width: 400px;
+}
+
+.toast {
+    background-color: white;
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideInRight 0.3s ease-out;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 300px;
+}
+
+.toast.success {
+    border-left: 4px solid #28a745;
+    color: #155724;
+}
+
+.toast.error {
+    border-left: 4px solid #dc3545;
+    color: #721c24;
+}
+
+.toast.warning {
+    border-left: 4px solid #ffc107;
+    color: #856404;
+}
+
+.toast.info {
+    border-left: 4px solid #17a2b8;
+    color: #0c5460;
+}
+
+.toast-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.toast-message {
+    flex: 1;
+    font-size: 14px;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0;
+    font-size: 16px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.toast-close:hover {
+    opacity: 1;
+}
+
+.toast.removing {
+    animation: fadeOut 0.3s ease-out;
+}
+
+/* =============================================================================
+   LOADING SPINNER
+   ============================================================================= */
+
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(52, 152, 219, 0.3);
+    border-top-color: #3498db;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+}
+
+.loading-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #666;
+    font-size: 14px;
+}
+
+/* =============================================================================
+   MODAL DIALOG
+   ============================================================================= */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modal-dialog {
+    background-color: white;
+    border-radius: 6px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    max-width: 400px;
+    width: 90%;
+    animation: slideDown 0.3s ease-out;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    color: #2c3e50;
+}
+
+.modal-body {
+    padding: 20px;
+    color: #333;
+    line-height: 1.5;
+}
+
+.modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.modal-footer .btn {
+    margin: 0;
+}

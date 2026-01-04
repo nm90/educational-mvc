@@ -63,8 +63,7 @@
         <textarea id="description"
                   name="description"
                   required
-                  placeholder="Enter task description"
-                  style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-height: 100px;">{{ task.description }}</textarea>
+                  placeholder="Enter task description">{{ task.description }}</textarea>
 
         <!-- Status Dropdown -->
         <label for="status">Status *</label>
@@ -73,7 +72,7 @@
             Pre-selected with task.status from Controller.
             If validation failed, contains submitted value.
         -->
-        <select id="status" name="status" required style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+        <select id="status" name="status" required>
             <option value="todo" {% if task.status == 'todo' %}selected{% endif %}>To Do</option>
             <option value="in-progress" {% if task.status == 'in-progress' %}selected{% endif %}>In Progress</option>
             <option value="done" {% if task.status == 'done' %}selected{% endif %}>Done</option>
@@ -85,7 +84,7 @@
             Dropdown showing valid priority values.
             Pre-selected with task.priority from Controller.
         -->
-        <select id="priority" name="priority" required style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+        <select id="priority" name="priority" required>
             <option value="low" {% if task.priority == 'low' %}selected{% endif %}>Low</option>
             <option value="medium" {% if task.priority == 'medium' %}selected{% endif %}>Medium</option>
             <option value="high" {% if task.priority == 'high' %}selected{% endif %}>High</option>
@@ -98,7 +97,7 @@
             Pre-selected with task.owner_id from Controller.
             Owner is required - every task must have an owner.
         -->
-        <select id="owner_id" name="owner_id" required style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+        <select id="owner_id" name="owner_id" required>
             <option value="">-- Select Owner --</option>
             {% for user in users %}
                 <option value="{{ user.id }}" {% if task.owner_id == user.id %}selected{% endif %}>
@@ -115,7 +114,7 @@
             Assignee is optional - can be null.
             Demonstrates preserving nullable relationship choices.
         -->
-        <select id="assignee_id" name="assignee_id" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+        <select id="assignee_id" name="assignee_id">
             <option value="">-- Unassigned --</option>
             {% for user in users %}
                 <option value="{{ user.id }}" {% if task.assignee_id == user.id %}selected{% endif %}>

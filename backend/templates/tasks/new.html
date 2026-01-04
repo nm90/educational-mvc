@@ -63,8 +63,7 @@
         <textarea id="description"
                   name="description"
                   required
-                  placeholder="Enter task description"
-                  style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-height: 100px;">{{ description or '' }}</textarea>
+                  placeholder="Enter task description">{{ description or '' }}</textarea>
 
         <!-- Status Dropdown -->
         <label for="status">Status *</label>
@@ -73,7 +72,7 @@
             Model defines what statuses are valid.
             View just displays them - it doesn't validate.
         -->
-        <select id="status" name="status" required style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+        <select id="status" name="status" required>
             <option value="todo" {% if status == 'todo' %}selected{% endif %}>To Do</option>
             <option value="in-progress" {% if status == 'in-progress' %}selected{% endif %}>In Progress</option>
             <option value="done" {% if status == 'done' %}selected{% endif %}>Done</option>
@@ -85,7 +84,7 @@
             Dropdown showing valid priority values.
             Model defines what priorities are valid.
         -->
-        <select id="priority" name="priority" required style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+        <select id="priority" name="priority" required>
             <option value="low" {% if priority == 'low' %}selected{% endif %}>Low</option>
             <option value="medium" {% if priority == 'medium' %}selected{% endif %}>Medium</option>
             <option value="high" {% if priority == 'high' %}selected{% endif %}>High</option>
@@ -99,7 +98,7 @@
             Owner is required - every task must have an owner.
             Demonstrates how View displays relationship choices.
         -->
-        <select id="owner_id" name="owner_id" required style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+        <select id="owner_id" name="owner_id" required>
             <option value="">-- Select Owner --</option>
             {% for user in users %}
                 <option value="{{ user.id }}" {% if owner_id == user.id|string %}selected{% endif %}>
@@ -116,7 +115,7 @@
             First option is empty (unassigned).
             Demonstrates handling nullable relationships in forms.
         -->
-        <select id="assignee_id" name="assignee_id" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+        <select id="assignee_id" name="assignee_id">
             <option value="">-- Unassigned --</option>
             {% for user in users %}
                 <option value="{{ user.id }}" {% if assignee_id == user.id|string %}selected{% endif %}>

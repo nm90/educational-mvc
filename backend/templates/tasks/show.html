@@ -35,7 +35,7 @@
     -->
     <table>
         <tr>
-            <th style="width: 150px;">Description</th>
+            <th class="th-label">Description</th>
             <td>{{ task.description }}</td>
         </tr>
         <tr>
@@ -70,10 +70,10 @@
         This demonstrates how Views access related objects.
         Lesson 4 covers relationship eager loading.
     -->
-    <h2 style="margin-top: 30px;">Owner</h2>
+    <h2 class="section-heading">Owner</h2>
     <table>
         <tr>
-            <th style="width: 150px;">Name</th>
+            <th class="th-label">Name</th>
             <td>{{ task.owner.name }}</td>
         </tr>
         <tr>
@@ -88,11 +88,11 @@
         This demonstrates handling nullable relationships.
         assignee_id can be null in the database.
     -->
-    <h2 style="margin-top: 30px;">Assigned To</h2>
+    <h2 class="section-heading">Assigned To</h2>
     {% if task.assignee %}
         <table>
             <tr>
-                <th style="width: 150px;">Name</th>
+                <th class="th-label">Name</th>
                 <td>{{ task.assignee.name }}</td>
             </tr>
             <tr>
@@ -118,7 +118,7 @@
             Delete uses POST method because it modifies data.
             Lesson 5 covers why we use POST for destructive actions.
         -->
-        <form action="{{ url_for('tasks.delete', task_id=task.id) }}" method="POST" style="display: inline;" data-async>
+        <form action="{{ url_for('tasks.delete', task_id=task.id) }}" method="POST" class="form-inline" data-async>
             <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this task?');">Delete</button>
         </form>
 
