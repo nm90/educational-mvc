@@ -2337,14 +2337,70 @@ class DevPanel {
 
         // Define the flow layers and their properties
         const layers = [
-            { label: '🌐\nBrowser', color: '#7fb3d5', phaseIndex: 0 },
-            { label: '⚙️\nController', color: '#4ec9b0', phaseIndex: 1 },
-            { label: '📊\nModel', color: '#569cd6', phaseIndex: 2 },
-            { label: '🗄️\nDatabase', color: '#d19a66', phaseIndex: 3 },
-            { label: '📊\nModel', color: '#569cd6', phaseIndex: -1 },  // Return phase
-            { label: '⚙️\nController', color: '#4ec9b0', phaseIndex: -1 },  // Return phase
-            { label: '👁️\nView', color: '#ce9178', phaseIndex: 4 },
-            { label: '🌐\nBrowser', color: '#7fb3d5', phaseIndex: 5 }
+            {
+                label: '🌐\nBrowser',
+                color: '#7fb3d5',
+                phaseIndex: 0,
+                type: 'browser',
+                description: 'Browser sends HTTP request to server',
+                details: 'Lesson 1: The browser initiates the request to your Flask application'
+            },
+            {
+                label: '⚙️\nController',
+                color: '#4ec9b0',
+                phaseIndex: 1,
+                type: 'controller',
+                description: 'Controller receives and processes request',
+                details: 'Lesson 2: Controllers receive HTTP requests and route them to appropriate methods'
+            },
+            {
+                label: '📊\nModel',
+                color: '#569cd6',
+                phaseIndex: 2,
+                type: 'model',
+                description: 'Model performs business logic',
+                details: 'Lesson 3: Models contain application logic and database operations'
+            },
+            {
+                label: '🗄️\nDatabase',
+                color: '#d19a66',
+                phaseIndex: 3,
+                type: 'database',
+                description: 'Database stores and retrieves data',
+                details: 'Lesson 4: SQLite database executes queries and returns results'
+            },
+            {
+                label: '📊\nModel',
+                color: '#569cd6',
+                phaseIndex: -1,
+                type: 'model-return',
+                description: 'Model returns data to controller',
+                details: 'Model passes processed data back through the MVC layers'
+            },
+            {
+                label: '⚙️\nController',
+                color: '#4ec9b0',
+                phaseIndex: -1,
+                type: 'controller-return',
+                description: 'Controller prepares response',
+                details: 'Controller passes data to view for rendering'
+            },
+            {
+                label: '👁️\nView',
+                color: '#ce9178',
+                phaseIndex: 4,
+                type: 'view',
+                description: 'View renders HTML response',
+                details: 'Lesson 5: Jinja2 templates render HTML with data from controller'
+            },
+            {
+                label: '🌐\nBrowser',
+                color: '#7fb3d5',
+                phaseIndex: 5,
+                type: 'browser-response',
+                description: 'Browser receives and displays response',
+                details: 'HTTP response with rendered HTML is sent to browser and displayed'
+            }
         ];
 
         let svg = `<svg class="flow-diagram-svg" viewBox="0 0 960 120" preserveAspectRatio="xMidYMid meet">`;
@@ -2354,10 +2410,15 @@ class DevPanel {
         for (let i = 0; i < layers.length; i++) {
             const layer = layers[i];
             const isDatabase = i === 3;
+            const metaData = {
+                type: layer.type,
+                description: layer.description,
+                details: layer.details
+            };
 
             // Draw box
             svg += `
-                <g class="flow-layer flow-layer-${i}" data-phase="${layer.phaseIndex}">
+                <g class="flow-layer flow-layer-${i}" data-phase="${layer.phaseIndex}" data-flow-type="${layer.type}" data-flow-meta='${JSON.stringify(metaData).replace(/'/g, "&#39;")}' tabindex="0" role="button" aria-label="${layer.type}: ${layer.description}">
                     <rect class="flow-box" x="${xPos}" y="${startY}" width="${boxWidth}" height="${boxHeight}"
                           fill="${layer.color}" opacity="0.2" stroke="${layer.color}" stroke-width="2" rx="4"/>
                     <text class="flow-label" x="${xPos + boxWidth/2}" y="${startY + boxHeight/2 + 6}"
@@ -2477,6 +2538,9 @@ class DevPanel {
             });
         }
 
+        // Attach click handlers for flow box interactions
+        this.attachFlowBoxClickHandlers();
+
         // Auto-play when tab opens
         this.playFlowAnimation();
     }
@@ -2543,6 +2607,275 @@ class DevPanel {
 
         if (this.flowAnimation.isPlaying) {
             animateNextPhase();
+        }
+    }
+
+    /**
+     * attachFlowBoxClickHandlers() - Attach click and keyboard handlers to flow boxes
+     *
+     * Enables:
+     * - Click to show pop-up details
+     * - Enter/Space keyboard activation
+     * - Close pop-up on Escape key
+     * - Visual selection state
+     */
+    attachFlowBoxClickHandlers() {
+        const container = document.getElementById('flow-diagram-container');
+        if (!container) return;
+
+        const flowLayers = container.querySelectorAll('.flow-layer');
+
+        flowLayers.forEach((layer, index) => {
+            const flowType = layer.getAttribute('data-flow-type');
+            const flowMeta = layer.getAttribute('data-flow-meta');
+
+            // Click handler for mouse interactions
+            layer.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showFlowBoxPopup(layer, flowType, flowMeta);
+            });
+
+            // Keyboard handler for accessibility (Enter/Space)
+            layer.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.showFlowBoxPopup(layer, flowType, flowMeta);
+                }
+            });
+
+            // Focus for keyboard navigation
+            layer.addEventListener('focus', () => {
+                layer.style.outline = '2px solid #007acc';
+                layer.style.outlineOffset = '2px';
+            });
+
+            layer.addEventListener('blur', () => {
+                layer.style.outline = 'none';
+            });
+        });
+
+        // Close pop-up on Escape or outside click
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closeFlowBoxPopup();
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            const popup = document.getElementById('flow-box-popup');
+            if (popup && !popup.contains(e.target) && !e.target.closest('.flow-layer')) {
+                this.closeFlowBoxPopup();
+            }
+        });
+    }
+
+    /**
+     * showFlowBoxPopup(layer, flowType, flowMeta) - Display pop-up with flow box details
+     *
+     * Shows:
+     * - Layer name and type
+     * - Description of what this layer does
+     * - Details with learning information
+     * - View Source link for relevant code
+     * - Draggable pop-up that can be moved around
+     *
+     * @param {Element} layer - The SVG layer element
+     * @param {string} flowType - Type identifier for the flow box
+     * @param {string} flowMeta - JSON string with metadata
+     */
+    showFlowBoxPopup(layer, flowType, flowMeta) {
+        // Close existing pop-up first
+        this.closeFlowBoxPopup();
+
+        // Parse metadata
+        let metaData = {};
+        try {
+            metaData = JSON.parse(flowMeta);
+        } catch (e) {
+            console.warn('[DevPanel] Failed to parse flow box metadata', e);
+        }
+
+        // Update selected state
+        const container = document.getElementById('flow-diagram-container');
+        if (container) {
+            container.querySelectorAll('.flow-layer').forEach(l => l.classList.remove('selected'));
+        }
+        layer.classList.add('selected');
+
+        // Get popup position near the clicked element
+        const rect = layer.getBoundingClientRect();
+        const popupX = rect.left + window.scrollX;
+        const popupY = rect.bottom + window.scrollY + 10;
+
+        // Create pop-up HTML
+        const popupHTML = `
+            <div class="flow-box-popup-header">
+                <h3 class="flow-box-popup-title">${metaData.type ? metaData.type.toUpperCase() : 'Layer'}</h3>
+                <button class="flow-box-popup-close" aria-label="Close pop-up" title="Close (Esc)">✕</button>
+            </div>
+            <div class="flow-box-popup-content">
+                <div class="flow-box-popup-section">
+                    <div class="flow-box-popup-label">Description</div>
+                    <div class="flow-box-popup-value">${metaData.description || 'No description'}</div>
+                </div>
+                <div class="flow-box-popup-section">
+                    <div class="flow-box-popup-label">Learning</div>
+                    <div class="flow-box-popup-value">${metaData.details || 'No details available'}</div>
+                </div>
+                <button class="flow-box-popup-source-link" aria-label="View source code" data-flow-type="${flowType}">📖 View in DevPanel</button>
+            </div>
+        `;
+
+        // Create and insert pop-up
+        const popup = document.createElement('div');
+        popup.id = 'flow-box-popup';
+        popup.className = 'flow-box-popup';
+        popup.innerHTML = popupHTML;
+        popup.style.left = popupX + 'px';
+        popup.style.top = popupY + 'px';
+
+        document.body.appendChild(popup);
+
+        // Ensure popup stays within viewport
+        setTimeout(() => {
+            const popupRect = popup.getBoundingClientRect();
+            if (popupRect.right > window.innerWidth) {
+                popup.style.left = (window.innerWidth - popupRect.width - 10) + 'px';
+            }
+            if (popupRect.bottom > window.innerHeight) {
+                popup.style.top = (rect.top + window.scrollY - popupRect.height - 10) + 'px';
+            }
+        }, 0);
+
+        // Attach close button handler
+        const closeBtn = popup.querySelector('.flow-box-popup-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.closeFlowBoxPopup());
+            closeBtn.focus();
+        }
+
+        // Attach draggable functionality
+        this.makePopupDraggable(popup);
+
+        // Attach source link handler
+        const sourceLink = popup.querySelector('.flow-box-popup-source-link');
+        if (sourceLink) {
+            sourceLink.addEventListener('click', () => {
+                this.viewFlowTypeInDevPanel(flowType);
+            });
+        }
+    }
+
+    /**
+     * makePopupDraggable(popup) - Make the pop-up draggable by its header
+     *
+     * Allows users to drag the pop-up around to view different content
+     * while keeping it on screen
+     *
+     * @param {Element} popup - The pop-up element to make draggable
+     */
+    makePopupDraggable(popup) {
+        const header = popup.querySelector('.flow-box-popup-header');
+        if (!header) return;
+
+        let isGrabbed = false;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        header.addEventListener('mousedown', (e) => {
+            isGrabbed = true;
+            const rect = popup.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            popup.classList.add('dragging');
+            header.style.cursor = 'grabbing';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isGrabbed) return;
+
+            const newX = e.clientX - offsetX;
+            const newY = e.clientY - offsetY;
+
+            // Constrain to viewport with some padding
+            const constrainedX = Math.max(0, Math.min(newX, window.innerWidth - popup.offsetWidth));
+            const constrainedY = Math.max(0, Math.min(newY, window.innerHeight - popup.offsetHeight));
+
+            popup.style.left = constrainedX + 'px';
+            popup.style.top = constrainedY + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isGrabbed) {
+                isGrabbed = false;
+                popup.classList.remove('dragging');
+                header.style.cursor = 'grab';
+            }
+        });
+    }
+
+    /**
+     * viewFlowTypeInDevPanel(flowType) - Navigate to relevant section in DevPanel
+     *
+     * Opens the appropriate DevPanel tab based on the flow type:
+     * - controller/controller-return: Show controller methods in Methods tab
+     * - model/model-return: Show model methods in Methods tab
+     * - database: Show database queries in Database tab
+     * - view: Show view rendering info in Flow tab
+     * - browser: Show flow tab for complete request visualization
+     *
+     * @param {string} flowType - The type of flow layer clicked
+     */
+    viewFlowTypeInDevPanel(flowType) {
+        // Map flow types to appropriate tabs
+        const flowTabMap = {
+            'browser': 'flow',
+            'controller': 'methods',
+            'model': 'methods',
+            'database': 'database',
+            'model-return': 'methods',
+            'controller-return': 'methods',
+            'view': 'flow',
+            'browser-response': 'flow'
+        };
+
+        const targetTab = flowTabMap[flowType] || 'flow';
+
+        // Close the pop-up
+        this.closeFlowBoxPopup();
+
+        // Switch to the appropriate tab
+        if (this.currentTab !== targetTab) {
+            this.switchTab(targetTab);
+        }
+
+        // Optionally scroll the dev panel into view
+        const devPanel = document.getElementById('dev-panel');
+        if (devPanel && !devPanel.classList.contains('active')) {
+            this.open();
+        }
+
+        console.log('[DevPanel] Switched to', targetTab, 'tab for', flowType);
+    }
+
+    /**
+     * closeFlowBoxPopup() - Close the currently displayed pop-up
+     *
+     * Removes the pop-up element from DOM and clears selection state
+     */
+    closeFlowBoxPopup() {
+        const popup = document.getElementById('flow-box-popup');
+        if (popup) {
+            popup.remove();
+        }
+
+        // Clear selected state from all layers
+        const container = document.getElementById('flow-diagram-container');
+        if (container) {
+            container.querySelectorAll('.flow-layer').forEach(layer => {
+                layer.classList.remove('selected');
+            });
         }
     }
 
