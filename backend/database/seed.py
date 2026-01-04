@@ -19,7 +19,12 @@ from typing import List, Tuple
 
 
 # Database file location
-DB_PATH = os.path.join(os.path.dirname(__file__), 'educational_mvc.db')
+# Supports both local development and Docker deployment
+# Docker sets DATABASE_PATH environment variable for persistence
+DB_PATH = os.environ.get(
+    'DATABASE_PATH',
+    os.path.join(os.path.dirname(__file__), 'educational_mvc.db')
+)
 
 
 def insert_seed_data() -> None:

@@ -1,0 +1,85 @@
+# Educational MVC App - Docker Ignore File
+# Excludes unnecessary files from Docker build context
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+backend/logs/*
+!backend/logs/.gitkeep
+server.log
+
+# Database files (will be created in container)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+backend/database/educational_mvc.db
+
+# Node modules (if any frontend build tools)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker files
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Documentation and project files
+*.md
+*.MD
+docs/
+IMPLEMENTATION_PLAN.*
+PROJECT_BRIEF.md
+
+# Implementation scripts
+implementation-scripts/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Empty directories
+docker/
+frontend/

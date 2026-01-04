@@ -121,9 +121,13 @@ logger = setup_logging()
 # WARNING: In production, always set a strong SECRET_KEY via environment variable
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-# Database path: Located in the database folder
+# Database path: Use environment variable for Docker, fallback to local path
+# Docker sets DATABASE_PATH=/app/data/educational_mvc.db for persistence
 DATABASE_DIR = os.path.join(os.path.dirname(__file__), 'database')
-app.config['DATABASE_PATH'] = os.path.join(DATABASE_DIR, 'educational_mvc.db')
+app.config['DATABASE_PATH'] = os.environ.get(
+    'DATABASE_PATH',
+    os.path.join(DATABASE_DIR, 'educational_mvc.db')
+)
 
 # ============================================================================
 # CORS SETUP
@@ -191,9 +195,20 @@ def init_database():
     - App needs working database before handling requests
     - Centralized initialization ensures consistency
     - Seed data provides examples for learning
+    
+    Docker Support:
+    - Creates database directory if using custom path (e.g., /app/data/)
+    - Respects DATABASE_PATH environment variable
     """
     db_path = app.config['DATABASE_PATH']
     schema_path = os.path.join(DATABASE_DIR, 'schema.sql')
+    
+    # Ensure database directory exists (important for Docker volumes)
+    db_dir = os.path.dirname(db_path)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+        logger.info(f"Created database directory: {db_dir}")
+        print(f"Created database directory: {db_dir}")
 
     # Check if database file already exists
     if os.path.exists(db_path):

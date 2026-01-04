@@ -1,0 +1,58 @@
+# Educational MVC App - Docker Compose Configuration
+# One-command setup: docker-compose up
+
+version: '3.8'
+
+services:
+  # Main application service
+  app:
+    build: .
+    container_name: educational-mvc-app
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount application code for development (hot reload)
+      - ./backend:/app/backend
+      - ./lessons:/app/lessons
+      # Persistent database volume
+      - db-data:/app/data
+      # Persistent logs
+      - ./backend/logs:/app/backend/logs
+    environment:
+      # Flask configuration
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      # Database location (persisted in volume)
+      - DATABASE_PATH=/app/data/educational_mvc.db
+      # Secret key (change in production!)
+      - SECRET_KEY=dev-secret-key-change-in-production
+    command: python backend/app.py
+    restart: unless-stopped
+    networks:
+      - mvc-network
+
+  # Optional: Production configuration (uncomment to use)
+  # app-prod:
+  #   build: .
+  #   container_name: educational-mvc-prod
+  #   ports:
+  #     - "5000:5000"
+  #   volumes:
+  #     - db-data:/app/data
+  #     - ./backend/logs:/app/backend/logs
+  #   environment:
+  #     - FLASK_ENV=production
+  #     - DATABASE_PATH=/app/data/educational_mvc.db
+  #     - SECRET_KEY=${SECRET_KEY:-change-this-secret-key}
+  #   restart: always
+  #   networks:
+  #     - mvc-network
+
+volumes:
+  # Persistent volume for SQLite database
+  db-data:
+    driver: local
+
+networks:
+  mvc-network:
+    driver: bridge

@@ -6,17 +6,23 @@ An interactive, full-stack educational application designed to teach developers 
 
 ## Quick Start
 
-### Local Setup
+### Docker Setup (Recommended)
+
+```bash
+# One-command setup and run
+docker-compose up
+
+# Access at http://localhost:5000
+# Database and logs persist in Docker volumes
+```
+
+For detailed Docker instructions, see [DOCKER.md](DOCKER.md).
+
+### Local Setup (Alternative)
 
 ```bash
 npm run setup   # Install dependencies and initialize database
 npm run start   # Start Flask server on http://localhost:5000
-```
-
-### Docker Setup
-
-```bash
-docker-compose up
 ```
 
 ## Project Structure
