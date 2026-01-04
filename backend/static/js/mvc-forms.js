@@ -62,7 +62,7 @@ class MvcFormHandler {
             if (response.success) {
                 this.handleSuccess(form, response);
             } else {
-                this.handleError(form, response.error);
+                this.handleError(form, response.error, response.__DEBUG__);
             }
 
         } catch (error) {
@@ -130,8 +130,15 @@ class MvcFormHandler {
      *
      * @param {HTMLFormElement} form
      * @param {object} error - Error object from server
+     * @param {object} debugData - Optional __DEBUG__ object from response
      */
-    static handleError(form, error) {
+    static handleError(form, error, debugData) {
+        // Save __DEBUG__ data to sessionStorage if present
+        // This ensures error requests appear in devPanel history
+        if (debugData) {
+            this.saveDebugDataFromResponse(debugData);
+        }
+
         // Show error message to user
         this.showMessage('error', error.message || 'An error occurred');
 
@@ -152,11 +159,10 @@ class MvcFormHandler {
     }
 
     /**
-     * Save __DEBUG__ data from JSON response to sessionStorage.
+     * Save __DEBUG__ data from JSON response to devPanel.
      *
      * Called after receiving a JSON response from the server.
-     * Saves the request data so it appears in the developer panel's
-     * request history, even though this was an async request.
+     * Notifies the devPanel to add the request to history and update the UI.
      *
      * @param {object} debugData - The __DEBUG__ object from response
      */
@@ -165,63 +171,12 @@ class MvcFormHandler {
             return;
         }
 
-        try {
-            const requestInfo = debugData.request_info;
-            const requestId = debugData.request_id;
-
-            if (!requestId) {
-                console.warn('[MvcFormHandler] No request_id in debug data');
-                return;
-            }
-
-            // Load existing history
-            let history = [];
-            try {
-                const stored = sessionStorage.getItem('devPanel-requestHistory');
-                if (stored) {
-                    history = JSON.parse(stored);
-                }
-            } catch (e) {
-                console.warn('[MvcFormHandler] Error loading history:', e);
-            }
-
-            // Check if already saved
-            const alreadySaved = history.some(r => r.request_id === requestId);
-            if (alreadySaved) {
-                console.log('[MvcFormHandler] Request already in history:', requestId);
-                return;
-            }
-
-            // Create history entry
-            const entry = {
-                request_id: requestId,
-                method: requestInfo.method || 'POST',
-                url: requestInfo.url || '/',
-                timestamp: requestInfo.timestamp || Date.now() / 1000,
-                debugData: JSON.parse(JSON.stringify(debugData)),
-                summary: {
-                    methodCallCount: (debugData.method_calls || []).length,
-                    queryCount: (debugData.db_queries || []).length,
-                    status: requestInfo.status || 200,
-                    duration_ms: (debugData.timing && debugData.timing.request_end && debugData.timing.request_start)
-                        ? (debugData.timing.request_end - debugData.timing.request_start) * 1000
-                        : 0
-                }
-            };
-
-            // Add to beginning of history (most recent first)
-            history.unshift(entry);
-
-            // Trim to max 20
-            if (history.length > 20) {
-                history = history.slice(0, 20);
-            }
-
-            // Save to storage
-            sessionStorage.setItem('devPanel-requestHistory', JSON.stringify(history));
-            console.log('[MvcFormHandler] Saved POST request to history:', requestId);
-        } catch (err) {
-            console.warn('[MvcFormHandler] Error saving debug data:', err);
+        // Use the global devPanel instance to add the request
+        // This updates both the internal state and the UI
+        if (window.devPanel && typeof window.devPanel.addExternalRequest === 'function') {
+            window.devPanel.addExternalRequest(debugData);
+        } else {
+            console.warn('[MvcFormHandler] devPanel not available, debug data not saved');
         }
     }
 

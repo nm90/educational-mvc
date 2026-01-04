@@ -2699,6 +2699,71 @@ class DevPanel {
     }
 
     /**
+     * addExternalRequest(debugData) - Add a request from external code (e.g., form handler)
+     *
+     * Called by mvc-forms.js when an async request completes (success or error).
+     * This allows the devPanel to show requests that don't trigger a page reload.
+     *
+     * @param {object} debugData - The __DEBUG__ object from the JSON response
+     */
+    addExternalRequest(debugData) {
+        if (!debugData || !debugData.request_info) {
+            console.warn('[DevPanel] addExternalRequest called with invalid data');
+            return;
+        }
+
+        const requestInfo = debugData.request_info;
+        const requestId = debugData.request_id;
+
+        if (!requestId) {
+            console.warn('[DevPanel] No request_id in external request data');
+            return;
+        }
+
+        // Check if already in history
+        const alreadyExists = this.requestHistory.some(r => r.request_id === requestId);
+        if (alreadyExists) {
+            console.log('[DevPanel] External request already in history:', requestId);
+            return;
+        }
+
+        // Create history entry
+        const historyEntry = {
+            request_id: requestId,
+            method: requestInfo.method || 'POST',
+            url: requestInfo.url || '/',
+            timestamp: requestInfo.timestamp || Date.now() / 1000,
+            debugData: JSON.parse(JSON.stringify(debugData)),
+            summary: {
+                methodCallCount: (debugData.method_calls || []).length,
+                queryCount: (debugData.db_queries || []).length,
+                errorCount: (debugData.errors || []).length,
+                status: requestInfo.status || 200,
+                duration_ms: (debugData.timing?.request_end - debugData.timing?.request_start) * 1000 || 0
+            }
+        };
+
+        // Add to beginning of history
+        this.requestHistory.unshift(historyEntry);
+
+        // Trim to max size
+        if (this.requestHistory.length > this.MAX_HISTORY_SIZE) {
+            this.requestHistory = this.requestHistory.slice(0, this.MAX_HISTORY_SIZE);
+        }
+
+        // Save to storage
+        this.saveHistoryToStorage();
+
+        // Update UI to show new request
+        this.updateRequestSelector();
+
+        // Auto-select the new request to show its details
+        this.selectRequest(requestId);
+
+        console.log('[DevPanel] External request added to history:', requestId);
+    }
+
+    /**
      * getMethodColor(method) - Get color for HTTP method badge
      *
      * @param {string} method - HTTP method (GET, POST, PUT, DELETE, etc.)
@@ -3061,11 +3126,14 @@ window.saveDebugDataIfAvailable = function() {
 window.saveDebugDataIfAvailable();
 
 // Initialize panel when DOM is ready
+// Store instance globally so external code (mvc-forms.js) can call addExternalRequest()
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        new DevPanel().init();
+        window.devPanel = new DevPanel();
+        window.devPanel.init();
     });
 } else {
     // DOM is already loaded (e.g., script loaded after page render)
-    new DevPanel().init();
+    window.devPanel = new DevPanel();
+    window.devPanel.init();
 }
