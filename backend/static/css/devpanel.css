@@ -5,12 +5,48 @@
  * - Provides styling for the developer panel UI component
  * - Panel displays debug information from __DEBUG__ object
  * - Dark theme following browser developer tools aesthetic
+ * - WCAG AA compliant contrast ratios and keyboard navigation
  *
  * Learning Purpose:
  * - Shows students what MVC apps are doing internally
  * - Makes request flow, method calls, and queries visible
  * - Essential for understanding data flow through layers
+ *
+ * Accessibility:
+ * - High contrast text (WCAG AA compliant)
+ * - Visible focus indicators for keyboard navigation
+ * - Semantic HTML with ARIA labels
+ * - Keyboard shortcuts (Escape to close)
  */
+
+/* ============================================================================
+   CSS VARIABLES (Reusable tokens for consistency)
+   ============================================================================ */
+:root {
+    /* Colors */
+    --color-bg-primary: #1e1e1e;
+    --color-bg-secondary: #252526;
+    --color-bg-tertiary: #2d2d30;
+    --color-text-primary: #d4d4d4;
+    --color-text-secondary: #858585;
+    --color-text-muted: #464647;
+    --color-accent-primary: #007acc;
+    --color-accent-secondary: #4ec9b0;
+    --color-accent-orange: #f59e0b;
+    --color-accent-red: #ef4444;
+    --color-accent-green: #4ade80;
+
+    /* Spacing */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 15px;
+    --spacing-xl: 20px;
+
+    /* Focus (keyboard navigation) */
+    --focus-outline: 2px solid var(--color-accent-primary);
+    --focus-shadow: 0 0 0 2px rgba(0, 122, 204, 0.3);
+}
 
 /* ============================================================================
    PANEL CONTAINER STYLES
@@ -89,6 +125,12 @@
     transform: scale(1.05);
 }
 
+#dev-panel-toggle:focus {
+    outline: var(--focus-outline);
+    outline-offset: 3px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), var(--focus-shadow);
+}
+
 #dev-panel-toggle:active {
     transform: scale(0.95);
 }
@@ -142,6 +184,12 @@
     color: #d4d4d4;
 }
 
+.dev-panel-close-btn:focus {
+    outline: var(--focus-outline);
+    outline-offset: 2px;
+    border-radius: 3px;
+}
+
 /* ============================================================================
    TAB BAR STYLES
    ============================================================================ */
@@ -175,6 +223,12 @@
 .dev-panel-tab:hover {
     color: #d4d4d4;
     background-color: #252526;
+}
+
+.dev-panel-tab:focus {
+    outline: var(--focus-outline);
+    outline-offset: -4px;
+    color: #d4d4d4;
 }
 
 .dev-panel-tab.active {
@@ -405,9 +459,10 @@
 }
 
 .state-inspector-search:focus {
-    outline: none;
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: -1px;
     border-color: #007acc;
-    box-shadow: inset 0 0 0 1px #007acc;
+    box-shadow: inset 0 0 0 1px #007acc, var(--focus-shadow);
 }
 
 .state-inspector-copy-btn {
@@ -424,6 +479,11 @@
 
 .state-inspector-copy-btn:hover {
     background-color: #1177bb;
+}
+
+.state-inspector-copy-btn:focus {
+    outline: var(--focus-outline);
+    outline-offset: 2px;
 }
 
 .state-inspector-copy-btn.copied {
@@ -465,6 +525,12 @@
 
 .tree-node-toggle:hover {
     color: #d4d4d4;
+}
+
+.tree-node-toggle:focus {
+    outline: var(--focus-outline);
+    outline-offset: 1px;
+    border-radius: 2px;
 }
 
 .tree-node-content {
@@ -628,6 +694,12 @@
     transform: rotate(-90deg);
 }
 
+.method-call-toggle:focus {
+    outline: var(--focus-outline);
+    outline-offset: 1px;
+    border-radius: 2px;
+}
+
 .method-call-header {
     display: flex;
     justify-content: space-between;
@@ -759,6 +831,12 @@
 
 .db-query-toggle:hover {
     color: #d4d4d4;
+}
+
+.db-query-toggle:focus {
+    outline: var(--focus-outline);
+    outline-offset: 1px;
+    border-radius: 2px;
 }
 
 .db-query-header {
@@ -956,6 +1034,11 @@
     box-shadow: 0 0 4px rgba(0, 122, 204, 0.5);
 }
 
+.flow-control-btn:focus {
+    outline: var(--focus-outline);
+    outline-offset: 2px;
+}
+
 .flow-control-btn:active {
     transform: scale(0.95);
 }
@@ -983,9 +1066,10 @@
 }
 
 .flow-control-select:focus {
-    outline: none;
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: -2px;
     border-color: #007acc;
-    box-shadow: inset 0 0 0 1px #007acc;
+    box-shadow: inset 0 0 0 1px #007acc, var(--focus-shadow);
 }
 
 /* SVG diagram container */
@@ -1193,6 +1277,12 @@
 
 .request-item:hover {
     background-color: #2d2d30;
+    border-color: #007acc;
+}
+
+.request-item:focus {
+    outline: var(--focus-outline);
+    outline-offset: -2px;
     border-color: #007acc;
 }
 

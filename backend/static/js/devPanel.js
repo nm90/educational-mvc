@@ -224,9 +224,15 @@ class DevPanel {
 
         // Keyboard shortcut: Alt+D to toggle panel
         document.addEventListener('keydown', (e) => {
+            // Alt+D: Toggle developer panel
             if (e.altKey && e.key.toLowerCase() === 'd') {
                 e.preventDefault();
                 this.toggle();
+            }
+            // Escape: Close developer panel if open
+            if (e.key === 'Escape' && this.isOpen) {
+                e.preventDefault();
+                this.close();
             }
         });
     }

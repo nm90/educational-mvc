@@ -19,7 +19,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Educational MVC App</title>
+    <meta name="description" content="An interactive educational application teaching MVC architecture with real-time request flow visualization.">
+    <meta name="theme-color" content="#2c3e50">
+    <title>Educational MVC App - Learn MVC Architecture</title>
 
     <!-- Developer Panel Styles -->
     <link rel="stylesheet" href="/static/css/devpanel.css">
@@ -32,6 +34,22 @@
 
     <!-- Minimal inline CSS for readability -->
     <style>
+        /* Skip-to-content link (visible on focus) */
+        .skip-to-content {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background-color: #3498db;
+            color: white;
+            padding: 8px;
+            text-decoration: none;
+            z-index: 100;
+        }
+
+        .skip-to-content:focus {
+            top: 0;
+        }
+
         /* Basic reset and typography */
         * {
             box-sizing: border-box;
@@ -80,11 +98,18 @@
             padding: 8px 0;
             border-bottom: 3px solid transparent;
             transition: all 0.2s ease;
+            position: relative;
         }
 
         nav a:hover {
             color: white;
             border-bottom-color: #3498db;
+        }
+
+        nav a:focus {
+            outline: 2px solid #3498db;
+            outline-offset: 2px;
+            color: white;
         }
 
         nav a.active {
@@ -211,6 +236,12 @@
             text-decoration: none;
             font-size: 14px;
             font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .btn:focus {
+            outline: 2px solid #3498db;
+            outline-offset: 2px;
         }
 
         .btn-primary {
@@ -223,6 +254,11 @@
             color: white;
         }
 
+        .btn-primary:focus {
+            outline: 2px solid #2980b9;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.3);
+        }
+
         .btn-secondary {
             background-color: #95a5a6;
             color: white;
@@ -231,6 +267,11 @@
         .btn-secondary:hover {
             background-color: #7f8c8d;
             color: white;
+        }
+
+        .btn-secondary:focus {
+            outline: 2px solid #7f8c8d;
+            box-shadow: 0 0 0 3px rgba(149, 165, 166, 0.3);
         }
 
         .btn-danger {
@@ -243,9 +284,22 @@
             color: white;
         }
 
+        .btn-danger:focus {
+            outline: 2px solid #c0392b;
+            box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.3);
+        }
+
         /* Action links in tables */
         .actions a {
             margin-right: 10px;
+            padding: 4px 8px;
+            border-radius: 3px;
+            transition: all 0.2s ease;
+        }
+
+        .actions a:focus {
+            outline: 2px solid #3498db;
+            background-color: rgba(52, 152, 219, 0.1);
         }
 
         /* Utility classes */
@@ -309,10 +363,12 @@
             font-size: 14px;
             background-color: white;
             cursor: pointer;
+            transition: all 0.2s ease;
         }
 
         select:focus {
-            outline: none;
+            outline: 2px solid #3498db;
+            outline-offset: -1px;
             border-color: #3498db;
             box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
         }
@@ -320,10 +376,12 @@
         /* Textarea styling */
         textarea {
             font-family: inherit;
+            transition: all 0.2s ease;
         }
 
         textarea:focus {
-            outline: none;
+            outline: 2px solid #3498db;
+            outline-offset: -1px;
             border-color: #3498db;
             box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
         }
@@ -373,19 +431,23 @@
     </style>
 </head>
 <body>
+    <!-- Skip-to-content link for screen readers and keyboard users -->
+    <a href="#main-content" class="skip-to-content">Skip to main content</a>
+
     <!-- Header - App title and branding -->
-    <header>
+    <header role="banner">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <h1>Educational MVC App</h1>
             <!-- Mode Toggle - Switch between Tutorial and Exploration modes -->
-            <div class="mode-toggle-container">
+            <div class="mode-toggle-container" role="group" aria-labelledby="mode-label">
+                <span class="mode-label" id="mode-label">Learning Mode:</span>
                 <span class="mode-label">📚 Tutorial</span>
                 <div class="mode-switch-wrapper">
-                    <input type="checkbox" id="mode-switch" aria-label="Toggle between Tutorial and Exploration modes">
+                    <input type="checkbox" id="mode-switch" aria-label="Toggle between Tutorial Mode and Exploration Mode" aria-describedby="current-mode-badge">
                     <label for="mode-switch" class="toggle-switch"></label>
                 </div>
                 <span class="mode-label">🔬 Exploration</span>
-                <span class="mode-badge" id="current-mode-badge">Tutorial Mode</span>
+                <span class="mode-badge" id="current-mode-badge" aria-live="polite" aria-atomic="true">Tutorial Mode</span>
             </div>
         </div>
     </header>
@@ -395,13 +457,13 @@
         Using Flask's request.endpoint to detect current page and highlight active nav link.
         This demonstrates conditional rendering in Jinja2 templates.
     -->
-    <nav>
-        <a href="/" {% if request.endpoint == 'index' %}class="active"{% endif %}>Home</a>
-        <a href="{{ url_for('users.index') }}" {% if request.endpoint and request.endpoint.startswith('users') %}class="active"{% endif %}>Users</a>
-        <a href="{{ url_for('tasks.index') }}" {% if request.endpoint and request.endpoint.startswith('tasks') %}class="active"{% endif %}>Tasks</a>
+    <nav role="navigation" aria-label="Main navigation">
+        <a href="/" {% if request.endpoint == 'index' %}class="active" aria-current="page"{% endif %}>Home</a>
+        <a href="{{ url_for('users.index') }}" {% if request.endpoint and request.endpoint.startswith('users') %}class="active" aria-current="page"{% endif %}>Users</a>
+        <a href="{{ url_for('tasks.index') }}" {% if request.endpoint and request.endpoint.startswith('tasks') %}class="active" aria-current="page"{% endif %}>Tasks</a>
     </nav>
 
-    <main>
+    <main id="main-content" role="main">
         <!-- Flash Messages - Display feedback from Controller actions -->
         <!--
             Flash messages are set by Controllers (e.g., flash('User created!', 'success'))
@@ -409,9 +471,9 @@
         -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div class="flash-messages">
+                <div class="flash-messages" role="region" aria-live="polite" aria-atomic="true" aria-label="Status messages">
                     {% for category, message in messages %}
-                        <div class="flash {{ category }}">{{ message }}</div>
+                        <div class="flash {{ category }}" role="alert">{{ message }}</div>
                     {% endfor %}
                 </div>
             {% endif %}
@@ -427,9 +489,9 @@
     </main>
 
     <!-- Footer - App information and status -->
-    <footer>
-        <p><strong>Educational MVC App</strong> - Phase 2: Async JSON API</p>
-        <p>All form submissions are now async with full __DEBUG__ transparency</p>
+    <footer role="contentinfo">
+        <p><strong>Educational MVC App</strong> - Learn MVC Architecture with Real-Time Request Tracing</p>
+        <p>All form submissions are async with full __DEBUG__ transparency for learning</p>
     </footer>
 
     <!-- JavaScript for async form handling -->
