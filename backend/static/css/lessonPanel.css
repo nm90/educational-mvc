@@ -758,6 +758,20 @@ input:checked + .toggle-slider:before {
     border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
+/* Code editor wrapper for overlay highlighting */
+.lesson-code-editor-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 150px;
+    max-height: 250px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.3);
+    box-sizing: border-box;
+}
+
 /* Instructions for code checkpoint */
 .lesson-code-instructions {
     margin-bottom: 10px;
@@ -770,41 +784,84 @@ input:checked + .toggle-slider:before {
     color: rgba(255, 255, 255, 0.9);
 }
 
-/* Syntax-highlighted code editor */
-.lesson-code-input {
-    display: block;
+/* Syntax-highlighted code overlay (behind textarea) */
+.lesson-code-highlight {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
-    min-height: 150px;
-    max-height: 250px;
+    height: 100%;
     padding: 8px;
-    margin-bottom: 8px;
+    margin: 0;
     font-family: 'Monaco', 'Menlo', 'Courier New', 'Ubuntu Mono', monospace;
     font-size: 11px;
     line-height: 1.5;
-    background: rgba(0, 0, 0, 0.3);
+    background: transparent;
     color: #d4d4d4;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
-    overflow: auto;
+    overflow: hidden;
     tab-size: 4;
     -moz-tab-size: 4;
     white-space: pre;
     word-break: break-all;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.lesson-code-highlight code {
+    display: block;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color: inherit;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    white-space: inherit;
+}
+
+/* Code input textarea with transparent background for overlay effect */
+.lesson-code-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    padding: 8px;
+    margin: 0;
+    font-family: 'Monaco', 'Menlo', 'Courier New', 'Ubuntu Mono', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    background: transparent; /* Transparent so we see the highlight beneath */
+    color: rgba(255, 255, 255, 0.95); /* Slightly visible text */
+    border: none; /* No border since the wrapper has it */
+    border-radius: 0; /* No border radius since wrapper has it */
+    overflow: auto;
+    resize: none;
+    tab-size: 4;
+    -moz-tab-size: 4;
+    white-space: pre;
+    word-break: break-all;
+    z-index: 2;
+    caret-color: #4ade80; /* Green cursor for visibility */
+    box-sizing: border-box; /* Include padding in height calculation */
 }
 
 .lesson-code-input:focus {
     outline: none;
-    border-color: #4ade80;
-    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.25);
-    background: rgba(0, 0, 0, 0.4);
 }
 
 .lesson-code-input::selection {
-    background-color: rgba(255, 255, 255, 0.25);
+    background-color: rgba(74, 222, 128, 0.3);
 }
 
 .lesson-code-input::placeholder {
     color: rgba(255, 255, 255, 0.4);
+}
+
+/* When parent wrapper is focused, show focus state */
+.lesson-code-editor-wrapper:has(.lesson-code-input:focus) {
+    border-color: #4ade80;
+    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.25);
 }
 
 /* Submit button for code checkpoint */

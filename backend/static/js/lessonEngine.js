@@ -1402,28 +1402,80 @@ class LessonEngine {
             initialCode = checkpoint.codeTemplate;
         }
 
-        // Create contenteditable code editor with syntax highlighting
-        const codeEditor = document.createElement('code');
-        codeEditor.className = `lesson-code-input language-${language} hljs`;
+        // Create a wrapper for the code editor with overlay highlighting
+        const editorWrapper = document.createElement('div');
+        editorWrapper.className = 'lesson-code-editor-wrapper';
+        editorWrapper.style.position = 'relative';
+
+        // Create textarea for editing (plain text input)
+        const codeEditor = document.createElement('textarea');
+        codeEditor.className = 'lesson-code-input';
         codeEditor.id = 'lesson-code-input';
-        codeEditor.contentEditable = true;
         codeEditor.spellcheck = false;
         codeEditor.dataset.language = language;
-        codeEditor.textContent = initialCode;
+        codeEditor.value = initialCode;
 
-        // Apply initial highlighting
-        if (window.hljs) {
-            window.hljs.highlightElement(codeEditor);
-        }
+        // Create pre/code element for syntax highlighting (overlay)
+        const highlightedCode = document.createElement('pre');
+        highlightedCode.className = 'lesson-code-highlight';
+        highlightedCode.style.position = 'absolute';
+        highlightedCode.style.left = '0';
+        highlightedCode.style.top = '0';
+        highlightedCode.style.pointerEvents = 'none'; // Don't capture mouse events
+        highlightedCode.style.overflow = 'hidden'; // Don't show own scrollbars
+
+        const codeBlock = document.createElement('code');
+        codeBlock.className = `language-${language} hljs`;
+        codeBlock.textContent = initialCode;
+        highlightedCode.appendChild(codeBlock);
+
+        // Add to wrapper
+        editorWrapper.appendChild(highlightedCode);
+        editorWrapper.appendChild(codeEditor);
+
+        // Function to sync highlighting with textarea
+        const updateHighlighting = () => {
+            const code = codeEditor.value;
+            codeBlock.textContent = code;
+            // Apply highlight.js highlighting
+            if (window.hljs) {
+                window.hljs.highlightElement(codeBlock);
+            }
+            // Sync scroll position
+            highlightedCode.scrollTop = codeEditor.scrollTop;
+            highlightedCode.scrollLeft = codeEditor.scrollLeft;
+        };
+
+        // Initial highlighting
+        updateHighlighting();
 
         // Setup real-time highlighting as user types
-        codeEditor.addEventListener('input', () => {
-            const code = codeEditor.textContent;
-            codeEditor.classList.remove('hljs');
-            codeEditor.innerHTML = code;
-            codeEditor.classList.add('hljs');
-            if (window.hljs) {
-                window.hljs.highlightElement(codeEditor);
+        codeEditor.addEventListener('input', updateHighlighting);
+
+        // Sync scroll position when user scrolls
+        codeEditor.addEventListener('scroll', () => {
+            highlightedCode.scrollTop = codeEditor.scrollTop;
+            highlightedCode.scrollLeft = codeEditor.scrollLeft;
+        });
+
+        // Handle Tab key to insert 4 spaces instead of navigating
+        codeEditor.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+
+                // Get current cursor position
+                const start = codeEditor.selectionStart;
+                const end = codeEditor.selectionEnd;
+                const value = codeEditor.value;
+
+                // Insert 4 spaces at cursor position
+                codeEditor.value = value.substring(0, start) + '    ' + value.substring(end);
+
+                // Move cursor after the inserted spaces
+                codeEditor.selectionStart = codeEditor.selectionEnd = start + 4;
+
+                // Trigger input event to update highlighting
+                codeEditor.dispatchEvent(new Event('input'));
             }
         });
 
@@ -1448,7 +1500,7 @@ class LessonEngine {
         resultDiv.id = 'lesson-validation-result';
 
         codeDiv.appendChild(instructions);
-        codeDiv.appendChild(codeEditor);
+        codeDiv.appendChild(editorWrapper);
         codeDiv.appendChild(submitBtn);
         codeDiv.appendChild(resultDiv);
 
