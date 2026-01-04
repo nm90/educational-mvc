@@ -548,22 +548,15 @@ class LessonEngine {
     /**
      * Check if user can access a specific lesson
      *
-     * Enforces sequential lesson progression:
-     * - Lesson 1 is always accessible
-     * - Other lessons require previous lesson to be completed
+     * Currently allows access to all lessons.
+     * This method exists for future use if sequential progression is needed.
      *
      * @param {number} lessonId - Lesson ID to check access for
-     * @returns {boolean} - True if user can access this lesson
+     * @returns {boolean} - True if user can access this lesson (always true currently)
      */
     canAccessLesson(lessonId) {
-        // Lesson 1 is always accessible
-        if (lessonId === 1) {
-            return true;
-        }
-
-        // Check if previous lesson is completed
-        const previousLessonId = lessonId - 1;
-        return this.isLessonComplete(previousLessonId);
+        // All lessons are accessible
+        return true;
     }
 
     /**
@@ -898,11 +891,10 @@ class LessonEngine {
         panelContainer = document.createElement('div');
         panelContainer.id = 'lesson-panel';
 
-        // Build lesson selector options with locked/completed states
+        // Build lesson selector options with completion states
         let lessonOptions = '';
         for (let i = 1; i <= 8; i++) {
             const isCompleted = this.isLessonComplete(i);
-            const canAccess = this.canAccessLesson(i);
             const isSelected = this.currentLesson.id === i;
             const isCurrent = this.lessonProgress.currentLesson === i && !isCompleted;
 
@@ -914,13 +906,9 @@ class LessonEngine {
                 label += ` ✓ (${score}%)`;
             } else if (isCurrent) {
                 label += ' (In Progress)';
-            } else if (!canAccess) {
-                label += ' 🔒 (Locked)';
             }
 
-            // Disable locked lessons
-            const disabled = !canAccess ? 'disabled' : '';
-            lessonOptions += `<option value="${i}" ${isSelected ? 'selected' : ''} ${disabled}>${label}</option>`;
+            lessonOptions += `<option value="${i}" ${isSelected ? 'selected' : ''}>${label}</option>`;
         }
 
         // Calculate overall progress
@@ -1371,19 +1359,10 @@ class LessonEngine {
             prevBtn.addEventListener('click', () => this.previousStep());
         }
 
-        // Lesson selector dropdown - enforce access control
+        // Lesson selector dropdown
         if (lessonSelector) {
             lessonSelector.addEventListener('change', (event) => {
                 const lessonId = parseInt(event.target.value);
-
-                // Check if user can access this lesson
-                if (!this.canAccessLesson(lessonId)) {
-                    alert(`🔒 Lesson ${lessonId} is locked!\n\nYou must complete Lesson ${lessonId - 1} first.`);
-                    // Revert to current lesson
-                    event.target.value = this.currentLesson.id;
-                    return;
-                }
-
                 this.loadLesson(lessonId);
             });
         }
