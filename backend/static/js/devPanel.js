@@ -240,27 +240,98 @@ class DevPanel {
     /**
      * loadDebugData() - Read __DEBUG__ object from window
      *
+     * Loads debug data from window.__DEBUG__ (injected by backend).
+     * Gracefully handles missing or malformed data.
+     *
      * The backend injects window.__DEBUG__ with:
      * - Method calls with timing
      * - Database queries executed
      * - Request information
      * - Data passed to view
+     *
+     * Learning Purpose:
+     * - Shows how to handle optional data from backend
+     * - Demonstrates graceful degradation
+     * - Shows error handling for data validation
      */
     loadDebugData() {
-        if (window.__DEBUG__) {
-            this.debugData = window.__DEBUG__;
-            console.log('[DevPanel] Debug data loaded:', this.debugData);
+        try {
+            if (window.__DEBUG__) {
+                // Validate that __DEBUG__ is an object
+                if (typeof window.__DEBUG__ !== 'object') {
+                    console.warn('[DevPanel] __DEBUG__ is not an object:', typeof window.__DEBUG__);
+                    this.showDebugDataError('Invalid debug data format');
+                    return;
+                }
 
-            // Save current request to history
-            this.saveRequestToHistory();
+                this.debugData = window.__DEBUG__;
+                console.log('[DevPanel] Debug data loaded:', this.debugData);
 
-            // Update request selector UI
-            this.updateRequestSelector();
+                // Save current request to history
+                this.saveRequestToHistory();
 
-            // Update current tab display
-            this.updateCurrentTab();
-        } else {
-            console.warn('[DevPanel] No __DEBUG__ object found. Backend may not be injecting it.');
+                // Update request selector UI
+                this.updateRequestSelector();
+
+                // Update current tab display
+                this.updateCurrentTab();
+            } else {
+                console.info('[DevPanel] No __DEBUG__ object found. Debug mode may be disabled.');
+                this.showDebugDataNotice('Debug data not available. This can happen if the backend is not injecting debug information.');
+            }
+        } catch (error) {
+            console.error('[DevPanel] Error loading debug data:', error);
+            this.showDebugDataError('Failed to load debug data: ' + error.message);
+        }
+    }
+
+    /**
+     * showDebugDataNotice() - Show informational message in dev panel
+     *
+     * Displays a notice when debug data is unavailable but no error occurred.
+     * This helps users understand why the panel might be empty.
+     */
+    showDebugDataNotice(message) {
+        try {
+            // Find state inspector tab
+            const stateContent = this.tabContents['state'];
+            if (stateContent) {
+                stateContent.innerHTML = `
+                    <div style="padding: 20px; text-align: center; color: #666;">
+                        <p style="margin: 0; font-size: 14px;">ℹ️ ${message}</p>
+                        <p style="margin: 10px 0 0 0; font-size: 12px; color: #999;">
+                            Try making an API request or reload the page.
+                        </p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('[DevPanel] Error showing notice:', error);
+        }
+    }
+
+    /**
+     * showDebugDataError() - Show error message in dev panel
+     *
+     * Displays error information when debug data fails to load.
+     * Helps users understand and fix the problem.
+     */
+    showDebugDataError(message) {
+        try {
+            // Find state inspector tab
+            const stateContent = this.tabContents['state'];
+            if (stateContent) {
+                stateContent.innerHTML = `
+                    <div style="padding: 20px; text-align: center; color: #d32f2f;">
+                        <p style="margin: 0; font-size: 14px;">❌ Error: ${message}</p>
+                        <p style="margin: 10px 0 0 0; font-size: 12px; color: #999;">
+                            Check browser console for details.
+                        </p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('[DevPanel] Error showing error message:', error);
         }
     }
 
@@ -2157,44 +2228,54 @@ class DevPanel {
      * - Summary info (method call count, query count, etc.)
      *
      * Limits history to MAX_HISTORY_SIZE (20) items, removing oldest first.
+     *
+     * Learning Purpose:
+     * - Shows error handling for JSON operations
+     * - Demonstrates graceful handling of missing data
      */
     saveRequestToHistory() {
-        if (!this.debugData || !this.debugData.request_info) {
-            return;
-        }
-
-        const requestInfo = this.debugData.request_info;
-        const requestId = requestInfo.request_id || this.debugData.request_id;
-
-        if (!requestId) {
-            console.warn('[DevPanel] No request_id found in debug data, skipping history save');
-            return;
-        }
-
-        // Don't save duplicate request IDs (same request)
-        if (this.currentRequestId === requestId) {
-            return;
-        }
-
-        this.currentRequestId = requestId;
-
-        // Create history entry
-        const historyEntry = {
-            request_id: requestId,
-            method: requestInfo.method || 'GET',
-            url: requestInfo.url || '/',
-            timestamp: requestInfo.timestamp || Date.now() / 1000,
-            debugData: JSON.parse(JSON.stringify(this.debugData)), // Deep copy
-            summary: {
-                methodCallCount: (this.debugData.method_calls || []).length,
-                queryCount: (this.debugData.db_queries || []).length,
-                status: requestInfo.status || 200,
-                duration_ms: (this.debugData.timing?.request_end - this.debugData.timing?.request_start) * 1000 || 0
+        try {
+            if (!this.debugData || !this.debugData.request_info) {
+                return;
             }
-        };
 
-        // Add to history (at beginning, most recent first)
-        this.requestHistory.unshift(historyEntry);
+            const requestInfo = this.debugData.request_info;
+            const requestId = requestInfo.request_id || this.debugData.request_id;
+
+            if (!requestId) {
+                console.warn('[DevPanel] No request_id found in debug data, skipping history save');
+                return;
+            }
+
+            // Don't save duplicate request IDs (same request)
+            if (this.currentRequestId === requestId) {
+                return;
+            }
+
+            this.currentRequestId = requestId;
+
+            // Create history entry
+            const historyEntry = {
+                request_id: requestId,
+                method: requestInfo.method || 'GET',
+                url: requestInfo.url || '/',
+                timestamp: requestInfo.timestamp || Date.now() / 1000,
+                debugData: JSON.parse(JSON.stringify(this.debugData)), // Deep copy
+                summary: {
+                    methodCallCount: (this.debugData.method_calls || []).length,
+                    queryCount: (this.debugData.db_queries || []).length,
+                    status: requestInfo.status || 200,
+                    duration_ms: (this.debugData.timing?.request_end - this.debugData.timing?.request_start) * 1000 || 0
+                }
+            };
+
+            // Add to history (at beginning, most recent first)
+            this.requestHistory.unshift(historyEntry);
+        } catch (error) {
+            console.error('[DevPanel] Error saving request to history:', error);
+            // Don't fail the entire debug loading process if history save fails
+            // Just log the error and continue
+        }
 
         // Trim to MAX_HISTORY_SIZE
         if (this.requestHistory.length > this.MAX_HISTORY_SIZE) {

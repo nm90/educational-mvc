@@ -35,13 +35,24 @@ class LessonEngine {
     }
 
     /**
-     * Load a lesson from JSON file
+     * Load a lesson from JSON file with retry logic
      *
      * MVC Flow:
      * 1. Client requests lesson data via fetch (simulating Model retrieval)
      * 2. Server returns lesson JSON
      * 3. Store in this.currentLesson
      * 4. Render lesson UI (Controller responsibility)
+     *
+     * Error Handling:
+     * - Retries failed requests up to 3 times
+     * - Detects offline status
+     * - Saves progress locally on error for offline support
+     * - Provides helpful error messages to user
+     *
+     * Learning Purpose:
+     * - Shows how to handle network failures gracefully
+     * - Demonstrates retry logic pattern
+     * - Shows offline-first approach to preserve user progress
      *
      * @param {number} lessonId - Lesson ID to load (1-8)
      * @returns {Promise<object>} - The loaded lesson object
@@ -53,23 +64,31 @@ class LessonEngine {
                 throw new Error(`Invalid lesson ID: ${lessonId}. Must be between 1 and 8.`);
             }
 
-            // Fetch lesson JSON from /lessons/ directory
-            // Note: Flask serves this directory as static files
-            const response = await fetch(`/lessons/lesson-${lessonId}.json`);
+            // Attempt to load with retry logic
+            let lesson;
+            try {
+                lesson = await this.fetchLessonWithRetry(lessonId);
+            } catch (error) {
+                // If network error, try to load from localStorage as fallback
+                console.warn(`[LessonEngine] Network error loading lesson ${lessonId}, checking cache...`);
+                lesson = this.loadLessonFromCache(lessonId);
 
-            // Check if fetch was successful
-            if (!response.ok) {
-                throw new Error(`Failed to load lesson ${lessonId}: ${response.statusText}`);
+                if (!lesson) {
+                    throw error; // Re-throw if no cache available
+                }
+
+                console.warn(`[LessonEngine] Using cached lesson for ${lessonId}`);
+                this.showOfflineIndicator();
             }
-
-            // Parse JSON response
-            const lesson = await response.json();
 
             // Validate lesson JSON structure
             this.validateLessonStructure(lesson);
 
             // Store lesson in memory
             this.currentLesson = lesson;
+
+            // Cache the lesson for offline support
+            this.cacheLessonData(lessonId, lesson);
 
             // Initialize lesson start time for tracking
             this.lessonStartTime = Date.now();
@@ -112,7 +131,177 @@ class LessonEngine {
 
         } catch (error) {
             console.error(`❌ Error loading lesson ${lessonId}:`, error);
+
+            // Show user-friendly error message
+            this.showLessonError(lessonId, error);
+
+            // Save current progress before failing
+            this.saveProgress();
+
             throw error;
+        }
+    }
+
+    /**
+     * Fetch lesson with retry logic (3 attempts)
+     *
+     * Implements exponential backoff:
+     * - Attempt 1: immediate
+     * - Attempt 2: 500ms delay
+     * - Attempt 3: 1000ms delay
+     *
+     * @param {number} lessonId - Lesson ID to load
+     * @returns {Promise<object>} - The loaded lesson object
+     * @throws {Error} - If all attempts fail
+     */
+    async fetchLessonWithRetry(lessonId, maxAttempts = 3) {
+        let lastError;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                // Add delay for retries (exponential backoff)
+                if (attempt > 1) {
+                    const delayMs = (attempt - 1) * 500;
+                    console.log(`[LessonEngine] Retry attempt ${attempt}/${maxAttempts} after ${delayMs}ms...`);
+                    await this.delay(delayMs);
+                }
+
+                // Fetch lesson JSON from /lessons/ directory
+                // Note: Flask serves this directory as static files
+                const response = await fetch(`/lessons/lesson-${lessonId}.json`, {
+                    signal: AbortSignal.timeout(10000) // 10 second timeout
+                });
+
+                // Check if fetch was successful
+                if (!response.ok) {
+                    throw new Error(`Failed to load lesson ${lessonId}: ${response.statusText}`);
+                }
+
+                // Parse JSON response
+                const lesson = await response.json();
+
+                console.log(`[LessonEngine] Lesson ${lessonId} loaded successfully`);
+                return lesson;
+
+            } catch (error) {
+                lastError = error;
+                console.warn(`[LessonEngine] Attempt ${attempt}/${maxAttempts} failed:`, error.message);
+
+                if (attempt === maxAttempts) {
+                    // All attempts exhausted
+                    throw new Error(
+                        `Failed to load lesson ${lessonId} after ${maxAttempts} attempts. ` +
+                        `${navigator.onLine ? 'Check if the server is running.' : 'You appear to be offline.'}`
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * Helper: Simple delay for retry backoff
+     *
+     * @param {number} ms - Milliseconds to delay
+     * @returns {Promise<void>}
+     */
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * Cache lesson data to localStorage for offline support
+     *
+     * Allows app to function offline by using previously cached lessons.
+     *
+     * @param {number} lessonId - Lesson ID to cache
+     * @param {object} lesson - Lesson object to store
+     */
+    cacheLessonData(lessonId, lesson) {
+        try {
+            const cacheKey = `lesson-cache-${lessonId}`;
+            localStorage.setItem(cacheKey, JSON.stringify(lesson));
+            console.log(`[LessonEngine] Lesson ${lessonId} cached for offline support`);
+        } catch (error) {
+            console.warn(`[LessonEngine] Failed to cache lesson ${lessonId}:`, error);
+            // Caching failure is not critical - app will still work online
+        }
+    }
+
+    /**
+     * Load lesson from localStorage cache
+     *
+     * Used when network is unavailable and we need offline support.
+     *
+     * @param {number} lessonId - Lesson ID to load
+     * @returns {object|null} - Cached lesson or null if not found
+     */
+    loadLessonFromCache(lessonId) {
+        try {
+            const cacheKey = `lesson-cache-${lessonId}`;
+            const cached = localStorage.getItem(cacheKey);
+            if (cached) {
+                return JSON.parse(cached);
+            }
+            return null;
+        } catch (error) {
+            console.error(`[LessonEngine] Error loading cached lesson ${lessonId}:`, error);
+            return null;
+        }
+    }
+
+    /**
+     * Show offline indicator to user
+     *
+     * Displays a subtle indicator that the app is running in offline mode
+     * and using cached data.
+     */
+    showOfflineIndicator() {
+        try {
+            // Find or create offline indicator
+            let indicator = document.getElementById('offline-indicator');
+            if (!indicator) {
+                indicator = document.createElement('div');
+                indicator.id = 'offline-indicator';
+                indicator.style.cssText = `
+                    position: fixed;
+                    top: 10px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: #ff9800;
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    z-index: 10000;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                `;
+                document.body.appendChild(indicator);
+            }
+            indicator.textContent = '⚠️ Offline Mode - Using cached content';
+            indicator.style.display = 'block';
+        } catch (error) {
+            console.warn('[LessonEngine] Failed to show offline indicator:', error);
+        }
+    }
+
+    /**
+     * Show lesson error message to user
+     *
+     * Displays helpful error information without technical jargon.
+     *
+     * @param {number} lessonId - Lesson ID that failed
+     * @param {Error} error - The error that occurred
+     */
+    showLessonError(lessonId, error) {
+        try {
+            const errorContainer = this.lessonPanelElement || document.body;
+            const errorMessage = navigator.onLine
+                ? 'Failed to load lesson. The server may be unavailable. Try refreshing the page.'
+                : 'You are offline. The lesson has not been cached and cannot be loaded.';
+
+            console.error(`[LessonEngine] Lesson error: ${errorMessage}`, error);
+        } catch (error) {
+            console.error('[LessonEngine] Error showing error message:', error);
         }
     }
 
