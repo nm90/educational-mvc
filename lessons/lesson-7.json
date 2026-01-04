@@ -1,0 +1,203 @@
+{
+  "id": 7,
+  "title": "Create Priority Update Feature",
+  "description": "Build a quick-update feature for task priority - your second hands-on coding exercise",
+  "estimated_time": "25 min",
+  "objectives": [
+    "Add a specialized Model method for priority updates",
+    "Create a new POST route in the Controller",
+    "Add inline priority controls to the View",
+    "Handle validation errors in the MVC flow"
+  ],
+  "steps": [
+    {
+      "id": "7-1",
+      "title": "Feature Overview",
+      "content": "You'll build a quick-priority-change feature!\n\nGoal: Let users change a task's priority directly from the task list, without opening the edit form.\n\nCurrent behavior: To change priority, you must click Edit, change the dropdown, click Update.\n\nNew behavior: Priority dropdown on each task row, changes apply immediately.\n\nThe feature has 3 parts:\n1. MODEL: Add Task.update_priority() method for targeted updates\n2. CONTROLLER: Add POST /tasks/<id>/priority route\n3. VIEW: Add inline priority dropdown with JavaScript form submission\n\nThis is different from Lesson 6:\n- Lesson 6 was a GET request (read data)\n- Lesson 7 is a POST request (modify data)\n\nPOST requests require:\n- Form submission or AJAX\n- CSRF protection (we'll handle this)\n- Proper error handling\n\nLet's build it!",
+      "hint": "This feature modifies data, so we use POST instead of GET",
+      "checkpoint": null
+    },
+    {
+      "id": "7-2",
+      "title": "Part 1: Add Model Method",
+      "content": "Add a specialized method for updating just the priority.\n\nOpen: backend/models/task.py\n\nWhy not use the existing update() method?\n- update() requires ALL fields (title, description, status, priority, owner_id)\n- We just want to change ONE field\n- A specialized method is cleaner and safer\n\nAdd update_priority() after the update() method (around line 520).\n\nThis method should:\n1. Accept task_id and new priority value\n2. Validate the priority value ('low', 'medium', 'high')\n3. Check the task exists\n4. Update ONLY the priority field\n5. Return the updated task (or None if not found)",
+      "hint": "This method only updates one field, making it simpler than the full update()",
+      "checkpoint": {
+        "type": "code",
+        "description": "Add Task.update_priority() method",
+        "instructions": "Add a new static method 'update_priority' to the Task class. It should update only the priority field for a specific task.",
+        "codeTemplate": "@staticmethod\n@log_method_call\ndef update_priority(task_id: int, priority: str) -> dict:\n    \"\"\"\n    Update just the priority of a task.\n    \n    MVC Flow:\n    1. Controller receives POST /tasks/<id>/priority\n    2. Controller calls Task.update_priority(id, priority)\n    3. This method validates priority value\n    4. Updates database with new priority and updated_at\n    5. Returns updated task to Controller\n    \n    Args:\n        task_id: The task's ID\n        priority: New priority ('low', 'medium', 'high')\n    \n    Returns:\n        Updated task dict, or None if task not found\n    \n    Raises:\n        ValueError: If priority is invalid\n    \n    Covered in: Lesson 7 (targeted updates)\n    \"\"\"\n    # Validate priority value\n    valid_priorities = ['low', 'medium', 'high']\n    if priority not in valid_priorities:\n        raise ValueError(f\"Invalid priority: {priority}. Must be one of {valid_priorities}\")\n    \n    # Check task exists\n    existing = Task.get_by_id(task_id)\n    if not existing:\n        return None\n    \n    # ADD YOUR CODE HERE:\n    # 1. Create UPDATE query that sets priority and updated_at\n    # 2. Execute the query with task_id and priority parameters\n    # 3. Fetch and return the updated task\n    ",
+        "validator": {
+          "type": "static",
+          "checks": [
+            {
+              "type": "regex",
+              "pattern": "UPDATE\\s+tasks",
+              "message": "Must include an UPDATE query for the tasks table",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "priority",
+              "message": "Must update the priority field",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "updated_at",
+              "message": "Should update the updated_at timestamp",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "execute_query",
+              "message": "Must use execute_query() to run the database query",
+              "required": true
+            }
+          ]
+        },
+        "testSteps": [
+          "Save your changes to task.py",
+          "Test in Flask shell: Task.update_priority(1, 'high')",
+          "Verify the task's priority changed",
+          "Try invalid priority: Task.update_priority(1, 'urgent') - should raise ValueError"
+        ],
+        "hints": [
+          "Use: UPDATE tasks SET priority = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+          "After updating, call Task.get_by_id(task_id) to return the updated task",
+          "The order of parameters in execute_query must match the ? placeholders"
+        ]
+      }
+    },
+    {
+      "id": "7-3",
+      "title": "Part 2: Add Controller Route",
+      "content": "Create a new route for priority updates.\n\nOpen: backend/controllers/task_controller.py\n\nAdd a new route after the update() method (around line 510):\n- Route: POST /tasks/<id>/priority\n- Accept priority value from form data\n- Call Task.update_priority()\n- Handle success, not found, and validation errors\n- Return appropriate response (redirect or JSON)",
+      "hint": "Follow the same error handling pattern as the create() and update() methods",
+      "checkpoint": {
+        "type": "code",
+        "description": "Add POST /tasks/<id>/priority route",
+        "instructions": "Create a new route that handles priority updates. It should parse the priority from form data, call Task.update_priority(), and handle all possible outcomes.",
+        "codeTemplate": "@tasks_bp.route('/<int:task_id>/priority', methods=['POST'])\n@log_method_call\ndef update_priority(task_id):\n    \"\"\"\n    Quick-update a task's priority.\n    \n    MVC Flow:\n    1. Controller receives POST /tasks/<id>/priority\n    2. Controller extracts priority from form data\n    3. Controller calls Task.update_priority(id, priority)\n    4. Model validates and updates database\n    5. Controller handles result:\n       - Success: redirect back with success message\n       - Not found: return 404\n       - Validation error: redirect back with error message\n    \n    HTTP: POST /tasks/<id>/priority\n    Form data: priority ('low', 'medium', or 'high')\n    \n    Covered in: Lesson 7 (targeted update routes)\n    \"\"\"\n    # Get priority from form data\n    priority = request.form.get('priority', '').strip()\n    \n    # ADD YOUR CODE HERE:\n    # 1. Try to call Task.update_priority(task_id, priority)\n    # 2. If task is None: flash error and return 404\n    # 3. If ValueError: flash the error message\n    # 4. If success: flash success message\n    # 5. Redirect back to the task list or referrer\n    \n    return redirect(url_for('tasks.index'))",
+        "validator": {
+          "type": "static",
+          "checks": [
+            {
+              "type": "regex",
+              "pattern": "Task\\.update_priority",
+              "message": "Must call Task.update_priority() to update the task",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "request\\.form\\.get\\(['\"]priority['\"]",
+              "message": "Must get 'priority' from request.form",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "ValueError",
+              "message": "Must handle ValueError for invalid priority",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "flash\\(",
+              "message": "Should use flash() for user feedback",
+              "required": true
+            }
+          ]
+        },
+        "testSteps": [
+          "Save your changes to task_controller.py",
+          "You can test with curl: curl -X POST -d 'priority=high' http://localhost:5000/tasks/1/priority",
+          "Check the flash message appears",
+          "Verify the task's priority changed in the database"
+        ],
+        "hints": [
+          "Use try/except to catch ValueError from the Model",
+          "Use flash(str(e), 'error') to show validation errors",
+          "Use request.referrer or url_for('tasks.index') for redirect",
+          "Check if result is None to handle not-found case"
+        ]
+      }
+    },
+    {
+      "id": "7-4",
+      "title": "Part 3: Add Inline Priority Dropdown",
+      "content": "Add a priority dropdown to each task row in the View.\n\nOpen: backend/templates/tasks/index.html\n\nFor each task, add:\n1. A small form with a priority dropdown\n2. The form submits to POST /tasks/<id>/priority\n3. Auto-submit when selection changes (JavaScript)\n4. Show current priority as selected",
+      "hint": "Use onchange='this.form.submit()' for auto-submission",
+      "checkpoint": {
+        "type": "code",
+        "description": "Add inline priority dropdown to task list",
+        "instructions": "Add a form with a priority dropdown to each task row. The dropdown should show the current priority and submit automatically when changed.",
+        "codeTemplate": "<!-- Add this inside your task row, in each task item -->\n<form action=\"{{ url_for('tasks.update_priority', task_id=task.id) }}\" \n      method=\"POST\" \n      class=\"inline-priority-form\">\n    \n    <!-- ADD YOUR CODE HERE: -->\n    <!-- 1. Create a select element with name=\"priority\" -->\n    <!-- 2. Add options for 'low', 'medium', 'high' -->\n    <!-- 3. Mark the current priority as selected -->\n    <!-- 4. Add onchange=\"this.form.submit()\" for auto-submit -->\n    \n</form>\n\n<style>\n.inline-priority-form {\n    display: inline-block;\n}\n.inline-priority-form select {\n    padding: 0.25rem 0.5rem;\n    border: 1px solid #ccc;\n    border-radius: 4px;\n    cursor: pointer;\n}\n.inline-priority-form select:focus {\n    outline: none;\n    border-color: #007bff;\n}\n/* Optional: color-code priorities */\n.inline-priority-form select[data-priority=\"high\"] {\n    border-color: #dc3545;\n}\n.inline-priority-form select[data-priority=\"medium\"] {\n    border-color: #ffc107;\n}\n.inline-priority-form select[data-priority=\"low\"] {\n    border-color: #28a745;\n}\n</style>",
+        "validator": {
+          "type": "static",
+          "checks": [
+            {
+              "type": "regex",
+              "pattern": "name=['\"]priority['\"]",
+              "message": "Must have a select/input with name='priority'",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "onchange",
+              "message": "Should auto-submit on change using onchange",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "(selected|task\\.priority)",
+              "message": "Must mark the current priority as selected",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "update_priority",
+              "message": "Form action must point to update_priority route",
+              "required": true
+            }
+          ]
+        },
+        "testSteps": [
+          "Save your changes to index.html",
+          "Refresh the /tasks page",
+          "Each task should have a priority dropdown",
+          "Change a priority - it should update immediately",
+          "Check the flash message confirms the update"
+        ],
+        "hints": [
+          "Use {% if task.priority == 'high' %}selected{% endif %} for selection",
+          "Use onchange=\"this.form.submit()\" on the select element",
+          "Add data-priority=\"{{ task.priority }}\" for CSS styling"
+        ]
+      }
+    },
+    {
+      "id": "7-5",
+      "title": "Handle Validation Errors",
+      "content": "Let's verify error handling works correctly.\n\nTest the validation:\n\n1. Try to submit an invalid priority (you'll need to use browser dev tools or curl):\n   curl -X POST -d 'priority=urgent' http://localhost:5000/tasks/1/priority\n\n2. Check the flash message shows the validation error.\n\n3. Verify the task's priority did NOT change.\n\nOpen the Developer Panel:\n\n**Method Call Stack:**\n- TaskController.update_priority() called\n- Task.update_priority() called\n- ValueError raised (invalid priority)\n- No UPDATE query executed\n\n**Database Inspector:**\n- Should show NO UPDATE query (validation failed before query)\n\nThis demonstrates the MVC error flow:\n1. Controller receives request\n2. Controller calls Model\n3. Model validates and raises error\n4. Controller catches error\n5. Controller shows error to user\n6. Database is never touched (data integrity preserved)",
+      "hint": "Validation in the Model protects the database from invalid data",
+      "checkpoint": null
+    },
+    {
+      "id": "7-6",
+      "title": "Test Your Feature",
+      "content": "Final testing of the complete feature!\n\nTest steps:\n1. Go to /tasks and find a task with 'low' priority\n2. Use the priority dropdown to change it to 'high'\n3. Verify:\n   - Flash message says 'Priority updated!'\n   - Dropdown shows 'high' as selected\n   - Refresh the page - priority is still 'high'\n\n4. Open a task's detail page\n5. Verify the priority shows 'high'\n\n6. Open Developer Panel and check:\n   - Method Call Stack: update_priority() called Model\n   - Database Inspector: UPDATE query with new priority\n   - State Inspector: task has new priority value\n\nCongratulations! You've built a POST-based MVC feature!\n\nKey differences from Lesson 6 (GET-based filter):\n- This feature MODIFIES data\n- Uses POST method (not GET)\n- Includes validation with error handling\n- Updates database and returns to user",
+      "hint": "Compare the Developer Panel output for GET vs POST operations",
+      "checkpoint": {
+        "type": "quiz",
+        "question": "When the user changes priority and submits, which layer is responsible for validating that 'high' is a valid priority value?",
+        "options": [
+          "View (JavaScript in the browser)",
+          "Controller (task_controller.py)",
+          "Model (task.py)",
+          "Database (SQLite constraint)"
+        ],
+        "correct": "Model (task.py)"
+      }
+    }
+  ]
+}

@@ -1,0 +1,185 @@
+{
+  "id": 6,
+  "title": "Create Task Status Filter",
+  "description": "Your first coding exercise - add the ability to filter tasks by status (todo, in-progress, done)",
+  "estimated_time": "20 min",
+  "objectives": [
+    "Add a new Model method (Task.by_status)",
+    "Add query parameter handling to Controller",
+    "Add filter buttons to the View",
+    "See the complete MVC flow for a new feature"
+  ],
+  "steps": [
+    {
+      "id": "6-1",
+      "title": "Feature Overview",
+      "content": "You're about to build your first MVC feature!\n\nGoal: Let users filter tasks by status (show only 'todo', 'in-progress', or 'done' tasks).\n\nThe feature has 3 parts following the MVC pattern:\n1. MODEL: Add Task.by_status() method to query tasks by status\n2. CONTROLLER: Update index() to accept ?status= query parameter\n3. VIEW: Add filter buttons to the task list\n\nWhen complete:\n- User clicks 'Show Done Tasks' button\n- View sends GET /tasks?status=done to Controller\n- Controller calls Task.by_status('done')\n- Model queries WHERE status = 'done'\n- Controller passes filtered tasks to View\n- View displays only done tasks\n\nThe Developer Panel will show every step!\n\nLet's start with the Model.",
+      "hint": "This feature follows the standard MVC pattern: Model handles data, Controller orchestrates, View displays",
+      "checkpoint": null
+    },
+    {
+      "id": "6-2",
+      "title": "Part 1: Add Model Method",
+      "content": "First, add a new method to the Task Model.\n\nOpen: backend/models/task.py\n\nAdd a new static method by_status() after the get_all() method (around line 428).\n\nThis method should:\n1. Accept a status parameter ('todo', 'in-progress', or 'done')\n2. Query the database for tasks with that status\n3. Include relations (owner, assignee) for efficient loading\n4. Return the filtered list of tasks\n\nHere's the structure to follow:",
+      "hint": "Look at how get_all() works and adapt it to filter by status",
+      "checkpoint": {
+        "type": "code",
+        "description": "Add Task.by_status() method to filter tasks",
+        "instructions": "Add a new static method 'by_status' to the Task class. It should accept a 'status' parameter, query the database for tasks matching that status, and return the results with owner/assignee relations included.",
+        "codeTemplate": "@staticmethod\n@log_method_call\ndef by_status(status: str) -> list:\n    \"\"\"\n    Get all tasks with a specific status.\n    \n    MVC Flow:\n    1. Controller receives GET /tasks?status=done\n    2. Controller calls Task.by_status('done')\n    3. This method queries database with status filter\n    4. Returns filtered list to Controller\n    5. Controller passes to View\n    \n    Args:\n        status: One of 'todo', 'in-progress', 'done'\n    \n    Returns:\n        List of task dictionaries with owner/assignee nested\n    \n    Covered in: Lesson 6 (your first feature!)\n    \"\"\"\n    # Validate status value\n    valid_statuses = ['todo', 'in-progress', 'done']\n    if status not in valid_statuses:\n        raise ValueError(f\"Invalid status: {status}. Must be one of {valid_statuses}\")\n    \n    # Query tasks with the specified status\n    # Include JOINs to get owner and assignee data (avoid N+1 problem)\n    query = \"\"\"\n        SELECT \n            tasks.*,\n            owner.id as owner_user_id,\n            owner.name as owner_name,\n            owner.email as owner_email,\n            owner.created_at as owner_created_at,\n            assignee.id as assignee_user_id,\n            assignee.name as assignee_name,\n            assignee.email as assignee_email,\n            assignee.created_at as assignee_created_at\n        FROM tasks\n        INNER JOIN users as owner ON tasks.owner_id = owner.id\n        LEFT JOIN users as assignee ON tasks.assignee_id = assignee.id\n        WHERE tasks.status = ?\n        ORDER BY tasks.created_at DESC\n    \"\"\"\n    \n    # ADD YOUR CODE HERE:\n    # 1. Execute the query with the status parameter\n    # 2. Transform results to include nested owner/assignee objects\n    # 3. Return the list of tasks\n    ",
+        "validator": {
+          "type": "static",
+          "checks": [
+            {
+              "type": "regex",
+              "pattern": "execute_query",
+              "message": "Must use execute_query() to run the database query",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "status",
+              "message": "Must use the status parameter in the query",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "return",
+              "message": "Must return the filtered tasks",
+              "required": true
+            }
+          ]
+        },
+        "testSteps": [
+          "Save your changes to task.py",
+          "The server will auto-reload",
+          "Try calling Task.by_status('done') from the Flask shell",
+          "Check the Database Inspector to see the WHERE clause"
+        ],
+        "hints": [
+          "Look at get_all() method for how to execute queries and transform results",
+          "Use execute_query(query, (status,)) to pass the status parameter",
+          "Reuse the same result transformation logic from get_all()",
+          "Return an empty list if no tasks match the status"
+        ]
+      }
+    },
+    {
+      "id": "6-3",
+      "title": "Part 2: Update Controller",
+      "content": "Now update the Controller to accept a status filter.\n\nOpen: backend/controllers/task_controller.py\n\nModify the index() method (lines 81-121) to:\n1. Get the 'status' query parameter from the request\n2. If status is provided, call Task.by_status(status)\n3. Otherwise, call Task.get_all() as before\n4. Pass the filtered or full list to the View\n\nThe Controller should also handle invalid status values gracefully.",
+      "hint": "Use request.args.get('status') to get the query parameter",
+      "checkpoint": {
+        "type": "code",
+        "description": "Update TaskController.index() to filter by status",
+        "instructions": "Modify the index() method to check for a 'status' query parameter. If present and valid, use Task.by_status(). Otherwise, use Task.get_all().",
+        "codeTemplate": "@tasks_bp.route('/', methods=['GET'])\n@log_method_call\ndef index():\n    \"\"\"\n    List all tasks, optionally filtered by status.\n    \n    MVC Flow:\n    1. Controller receives GET /tasks (or GET /tasks?status=done)\n    2. Controller checks for status query parameter\n    3. If status provided: calls Task.by_status(status)\n       If no status: calls Task.get_all(include_relations=True)\n    4. Controller passes task list to template\n    5. View renders the filtered or full list\n    \n    HTTP: GET /tasks\n    Query params: status (optional) - 'todo', 'in-progress', or 'done'\n    \n    Covered in: Lesson 6 (adding filter feature)\n    \"\"\"\n    # Get the status filter from query parameters (if any)\n    status_filter = request.args.get('status')\n    \n    # ADD YOUR CODE HERE:\n    # 1. If status_filter is provided, call Task.by_status(status_filter)\n    # 2. Handle ValueError (invalid status) gracefully\n    # 3. Otherwise, call Task.get_all(include_relations=True)\n    # 4. Pass tasks and current_status to template\n    \n    return tracked_render_template('tasks/index.html', \n                                   tasks=tasks, \n                                   current_status=status_filter)",
+        "validator": {
+          "type": "static",
+          "checks": [
+            {
+              "type": "regex",
+              "pattern": "request\\.args\\.get\\(['\"]status['\"]\\)",
+              "message": "Must get 'status' from request.args",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "Task\\.by_status",
+              "message": "Must call Task.by_status() when status filter is provided",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "Task\\.get_all",
+              "message": "Must call Task.get_all() when no filter is provided",
+              "required": true
+            }
+          ]
+        },
+        "testSteps": [
+          "Save your changes to task_controller.py",
+          "Visit /tasks - should show all tasks",
+          "Visit /tasks?status=done - should show only done tasks",
+          "Check Method Call Stack to see Task.by_status() being called"
+        ],
+        "hints": [
+          "Use 'if status_filter:' to check if a filter was provided",
+          "Wrap Task.by_status() in try/except to handle invalid status",
+          "Flash an error message for invalid status values",
+          "Pass current_status to template so View knows which filter is active"
+        ]
+      }
+    },
+    {
+      "id": "6-4",
+      "title": "Part 3: Add View Filter Buttons",
+      "content": "Finally, add filter buttons to the View.\n\nOpen: backend/templates/tasks/index.html\n\nAdd a filter section above the task list with buttons for:\n- All (link to /tasks)\n- Todo (link to /tasks?status=todo)\n- In Progress (link to /tasks?status=in-progress)\n- Done (link to /tasks?status=done)\n\nHighlight the active button based on current_status.",
+      "hint": "Use Jinja2 conditionals to add an 'active' class to the current filter button",
+      "checkpoint": {
+        "type": "code",
+        "description": "Add filter buttons to task list View",
+        "instructions": "Add a row of filter buttons above the task list. Each button should link to the appropriate filtered URL. Highlight the active filter.",
+        "codeTemplate": "<!-- Add this filter section above your task list -->\n<div class=\"filter-buttons\">\n    <a href=\"{{ url_for('tasks.index') }}\" \n       class=\"filter-btn {% if not current_status %}active{% endif %}\">\n        All\n    </a>\n    \n    <!-- ADD YOUR CODE HERE: -->\n    <!-- Add buttons for 'todo', 'in-progress', and 'done' -->\n    <!-- Each should:\n         1. Link to /tasks?status=<status>\n         2. Have class 'active' when current_status matches\n         3. Display a user-friendly label\n    -->\n    \n</div>\n\n<style>\n.filter-buttons {\n    margin-bottom: 1rem;\n    display: flex;\n    gap: 0.5rem;\n}\n.filter-btn {\n    padding: 0.5rem 1rem;\n    border: 1px solid #ccc;\n    border-radius: 4px;\n    text-decoration: none;\n    color: #333;\n    background: #fff;\n}\n.filter-btn:hover {\n    background: #f0f0f0;\n}\n.filter-btn.active {\n    background: #007bff;\n    color: #fff;\n    border-color: #007bff;\n}\n</style>",
+        "validator": {
+          "type": "static",
+          "checks": [
+            {
+              "type": "regex",
+              "pattern": "status=todo",
+              "message": "Must include a filter link for 'todo' status",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "status=in-progress",
+              "message": "Must include a filter link for 'in-progress' status",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "status=done",
+              "message": "Must include a filter link for 'done' status",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "current_status",
+              "message": "Must use current_status to highlight the active filter",
+              "required": true
+            }
+          ]
+        },
+        "testSteps": [
+          "Save your changes to index.html",
+          "Refresh the /tasks page",
+          "Click each filter button",
+          "Verify the active button is highlighted",
+          "Check that the correct tasks are shown"
+        ],
+        "hints": [
+          "Use url_for('tasks.index', status='todo') to build filter URLs",
+          "Use {% if current_status == 'todo' %}active{% endif %} for highlighting",
+          "Make 'in-progress' display as 'In Progress' for readability"
+        ]
+      }
+    },
+    {
+      "id": "6-5",
+      "title": "Test Your Feature",
+      "content": "Time to test the complete feature!\n\nTest steps:\n1. Go to /tasks and verify you see all tasks\n2. Click 'Todo' - should show only todo tasks\n3. Click 'In Progress' - should show only in-progress tasks\n4. Click 'Done' - should show only done tasks\n5. Click 'All' - should show all tasks again\n\nOpen the Developer Panel and check:\n\n**Method Call Stack:**\n- When filtered: TaskController.index() calls Task.by_status()\n- When unfiltered: TaskController.index() calls Task.get_all()\n\n**Database Inspector:**\n- Filtered query: SELECT ... WHERE status = ?\n- Unfiltered query: SELECT ... (no WHERE clause)\n\n**State Inspector:**\n- See the tasks array and current_status value passed to View\n\nCongratulations! You've built your first complete MVC feature!",
+      "hint": "Use the Developer Panel to verify each layer is working correctly",
+      "checkpoint": {
+        "type": "quiz",
+        "question": "In the status filter feature you just built, which MVC layer contains the SQL query logic?",
+        "options": [
+          "View (index.html)",
+          "Controller (task_controller.py)",
+          "Model (task.py)",
+          "Route (Flask Blueprint)"
+        ],
+        "correct": "Model (task.py)"
+      }
+    }
+  ]
+}

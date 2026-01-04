@@ -1,0 +1,387 @@
+{
+  "id": 8,
+  "title": "Build Comments Feature from Scratch",
+  "description": "The capstone lesson - design and implement a complete Comment system following MVC patterns",
+  "estimated_time": "45+ min",
+  "objectives": [
+    "Design a new database table schema",
+    "Create a complete Model with CRUD and validation",
+    "Build Controller routes for comments",
+    "Add a comments section to the task detail View",
+    "Handle relationships between Comments, Tasks, and Users"
+  ],
+  "steps": [
+    {
+      "id": "8-1",
+      "title": "Feature Overview",
+      "content": "Welcome to the capstone lesson!\n\nYou'll build a COMPLETE feature from scratch: Comments on Tasks.\n\nWhen complete, users can:\n- Add comments to any task\n- See all comments on a task detail page\n- See who wrote each comment and when\n- Delete their own comments\n\nThis involves ALL MVC layers:\n- MODEL: Comment class with CRUD methods\n- CONTROLLER: CommentController with routes\n- VIEW: Comments section in task detail page\n- DATABASE: New comments table\n\nThis lesson has 5 parts:\n- Part A: Design the Comment model (database schema)\n- Part B: Implement Comment CRUD methods\n- Part C: Create CommentController routes\n- Part D: Add comments section to task view\n- Part E: Handle relationships (comment.user, task.comments)\n\nEach part has a checkpoint. Take your time!\n\nLet's start by designing the data model.",
+      "hint": "This is a real-world feature build - each part builds on the previous",
+      "checkpoint": null
+    },
+    {
+      "id": "8-2",
+      "title": "Part A: Design Comment Schema",
+      "content": "First, design the database table for comments.\n\nA Comment needs:\n- id: unique identifier (integer, primary key)\n- task_id: which task this comment belongs to (foreign key)\n- user_id: who wrote the comment (foreign key)\n- content: the comment text (string, required)\n- created_at: when it was written (timestamp)\n\nRelationships:\n- Each comment belongs to ONE task (many-to-one)\n- Each comment belongs to ONE user (many-to-one)\n- Each task can have MANY comments (one-to-many)\n- Each user can write MANY comments (one-to-many)\n\nCreate the migration file to add this table.",
+      "hint": "Look at the existing schema in backend/database/schema.sql for reference",
+      "checkpoint": {
+        "type": "code",
+        "description": "Create comments table schema",
+        "instructions": "Write the SQL to create the comments table with all required fields and foreign keys.",
+        "codeTemplate": "-- Create comments table\n-- Add this to backend/database/schema.sql or create a migration\n\nCREATE TABLE IF NOT EXISTS comments (\n    -- ADD YOUR SCHEMA HERE:\n    -- 1. id: INTEGER PRIMARY KEY AUTOINCREMENT\n    -- 2. task_id: INTEGER NOT NULL, FOREIGN KEY to tasks(id)\n    -- 3. user_id: INTEGER NOT NULL, FOREIGN KEY to users(id)\n    -- 4. content: TEXT NOT NULL\n    -- 5. created_at: TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n    -- \n    -- Consider: ON DELETE CASCADE for foreign keys?\n    -- (if task is deleted, should its comments be deleted too?)\n    \n);",
+        "validator": {
+          "type": "static",
+          "checks": [
+            {
+              "type": "regex",
+              "pattern": "CREATE TABLE.*comments",
+              "message": "Must create a table named 'comments'",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "task_id.*INTEGER",
+              "message": "Must have task_id as INTEGER",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "user_id.*INTEGER",
+              "message": "Must have user_id as INTEGER",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "content.*(TEXT|VARCHAR)",
+              "message": "Must have content as TEXT or VARCHAR",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "FOREIGN KEY.*tasks",
+              "message": "Should have foreign key reference to tasks table",
+              "required": true
+            }
+          ]
+        },
+        "testSteps": [
+          "Add the CREATE TABLE statement to schema.sql",
+          "Run the migration: python -c \"from backend.database.connection import init_db; init_db()\"",
+          "Verify the table exists in SQLite: sqlite3 backend/database/app.db '.schema comments'"
+        ],
+        "hints": [
+          "Use FOREIGN KEY (task_id) REFERENCES tasks(id) for the relationship",
+          "Add ON DELETE CASCADE so comments are deleted when task is deleted",
+          "created_at should default to CURRENT_TIMESTAMP"
+        ]
+      }
+    },
+    {
+      "id": "8-3",
+      "title": "Part B: Create Comment Model",
+      "content": "Now create the Comment Model class.\n\nCreate a new file: backend/models/comment.py\n\nThe Comment class needs:\n1. validate() - check content is not empty, task_id and user_id exist\n2. create() - insert new comment, return the created comment\n3. get_by_id() - get a single comment with user info\n4. get_by_task_id() - get all comments for a task with user info\n5. delete() - remove a comment\n\nFollow the patterns you've seen in User.py and Task.py:\n- Use @staticmethod for methods\n- Use @log_method_call decorator\n- Include docstrings explaining MVC flow\n- Handle foreign key validation",
+      "hint": "Look at Task.py for patterns on handling relationships",
+      "checkpoint": {
+        "type": "code",
+        "description": "Implement Comment.create() method",
+        "instructions": "Create the Comment.create() method that validates input, inserts a new comment, and returns the created comment with user info.",
+        "codeTemplate": "\"\"\"\nComment Model - Handles comment data and relationships.\n\nMVC Role: MODEL\n- Manages comment data structure\n- Handles validation (content not empty, valid task/user IDs)\n- Executes database queries for CRUD operations\n- Returns structured data to Controllers\n\nRelationships:\n- Each comment belongs to one Task (task_id foreign key)\n- Each comment belongs to one User (user_id foreign key)\n- Comments are loaded with user info to avoid N+1 queries\n\nCovered in: Lesson 8 (building a complete feature)\n\"\"\"\n\nimport re\nfrom backend.database.connection import execute_query\nfrom backend.utils.decorators import log_method_call\n\n\nclass Comment:\n    \"\"\"\n    Comment Model representing task comments with user authorship.\n    \n    Database table: comments\n    Relationships: belongs_to Task, belongs_to User\n    \"\"\"\n    \n    @staticmethod\n    @log_method_call\n    def validate(content: str, task_id: int, user_id: int) -> None:\n        \"\"\"\n        Validate comment data before saving.\n        \n        Args:\n            content: The comment text\n            task_id: ID of the task this comment belongs to\n            user_id: ID of the user writing the comment\n        \n        Raises:\n            ValueError: If validation fails\n        \"\"\"\n        # Check content is not empty\n        if not content or not content.strip():\n            raise ValueError(\"Comment content cannot be empty\")\n        \n        # Check task exists\n        task_query = \"SELECT id FROM tasks WHERE id = ?\"\n        task = execute_query(task_query, (task_id,), fetch_one=True)\n        if not task:\n            raise ValueError(f\"Task with ID {task_id} does not exist\")\n        \n        # Check user exists\n        user_query = \"SELECT id FROM users WHERE id = ?\"\n        user = execute_query(user_query, (user_id,), fetch_one=True)\n        if not user:\n            raise ValueError(f\"User with ID {user_id} does not exist\")\n    \n    @staticmethod\n    @log_method_call\n    def create(content: str, task_id: int, user_id: int) -> dict:\n        \"\"\"\n        Create a new comment.\n        \n        MVC Flow:\n        1. Controller receives POST with comment data\n        2. Controller calls Comment.create()\n        3. This method validates data\n        4. Inserts into database\n        5. Returns created comment with user info\n        \n        Args:\n            content: The comment text\n            task_id: ID of the task to comment on\n            user_id: ID of the user writing the comment\n        \n        Returns:\n            dict: The created comment with nested user object\n        \n        Raises:\n            ValueError: If validation fails\n        \"\"\"\n        # Validate input\n        Comment.validate(content, task_id, user_id)\n        \n        # ADD YOUR CODE HERE:\n        # 1. Insert the comment into the database\n        # 2. Get the new comment's ID\n        # 3. Fetch and return the complete comment with user info\n        ",
+        "validator": {
+          "type": "static",
+          "checks": [
+            {
+              "type": "regex",
+              "pattern": "INSERT INTO comments",
+              "message": "Must INSERT into comments table",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "execute_query",
+              "message": "Must use execute_query() to run database queries",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "return",
+              "message": "Must return the created comment",
+              "required": true
+            }
+          ]
+        },
+        "testSteps": [
+          "Create the file backend/models/comment.py",
+          "Import Comment in your test: from backend.models.comment import Comment",
+          "Test: Comment.create('Great task!', 1, 1)",
+          "Verify the comment appears in the database"
+        ],
+        "hints": [
+          "Use: INSERT INTO comments (content, task_id, user_id) VALUES (?, ?, ?)",
+          "Get the last inserted ID with: execute_query(..., return_lastrowid=True)",
+          "Call Comment.get_by_id() to return the complete comment with user"
+        ]
+      }
+    },
+    {
+      "id": "8-4",
+      "title": "Part B (continued): get_by_task_id Method",
+      "content": "Now add the method to get all comments for a task.\n\nThis method will:\n1. Accept a task_id parameter\n2. Query all comments for that task\n3. Include user information for each comment (JOIN)\n4. Order by created_at (newest or oldest first)\n5. Return a list of comment dictionaries\n\nThis is similar to Task.get_all() but filtered by task_id.",
+      "hint": "Use LEFT JOIN to include user info with each comment",
+      "checkpoint": {
+        "type": "code",
+        "description": "Implement Comment.get_by_task_id() method",
+        "instructions": "Add a method to get all comments for a specific task, including the author's user information.",
+        "codeTemplate": "@staticmethod\n@log_method_call\ndef get_by_task_id(task_id: int) -> list:\n    \"\"\"\n    Get all comments for a specific task with user info.\n    \n    MVC Flow:\n    1. Controller loads task detail page\n    2. Controller calls Comment.get_by_task_id(task_id)\n    3. This method queries comments + user info in one query\n    4. Returns list of comments to Controller\n    5. Controller passes to View for rendering\n    \n    Args:\n        task_id: The task's ID\n    \n    Returns:\n        list: Comments with nested user objects, ordered by created_at\n    \n    Performance Note:\n    - Uses JOIN to include user info (avoids N+1 problem)\n    - For 50 comments: 1 query instead of 51 queries!\n    \"\"\"\n    # ADD YOUR CODE HERE:\n    # 1. Write a SELECT query joining comments with users\n    # 2. Filter by task_id\n    # 3. Order by created_at (DESC for newest first, or ASC for oldest)\n    # 4. Transform results to include nested user object\n    # 5. Return the list of comments\n    \n    query = \"\"\"\n        SELECT \n            comments.*,\n            users.id as user_id,\n            users.name as user_name,\n            users.email as user_email\n        FROM comments\n        INNER JOIN users ON comments.user_id = users.id\n        WHERE comments.task_id = ?\n        ORDER BY comments.created_at ASC\n    \"\"\"\n    \n    # Execute and transform results\n    ",
+        "validator": {
+          "type": "static",
+          "checks": [
+            {
+              "type": "regex",
+              "pattern": "SELECT.*FROM comments",
+              "message": "Must SELECT from comments table",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "JOIN.*users",
+              "message": "Must JOIN with users table to include author info",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "WHERE.*task_id",
+              "message": "Must filter by task_id",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "ORDER BY",
+              "message": "Should ORDER BY created_at",
+              "required": true
+            }
+          ]
+        },
+        "testSteps": [
+          "Add the method to comment.py",
+          "Create a few test comments for task ID 1",
+          "Test: Comment.get_by_task_id(1)",
+          "Verify each comment includes the user object"
+        ],
+        "hints": [
+          "Transform each result row into: {'id': ..., 'content': ..., 'user': {'id': ..., 'name': ...}}",
+          "Return empty list if no comments found",
+          "Use fetch_all=True in execute_query"
+        ]
+      }
+    },
+    {
+      "id": "8-5",
+      "title": "Part C: Create CommentController",
+      "content": "Now create the Controller to handle comment routes.\n\nCreate a new file: backend/controllers/comment_controller.py\n\nRoutes needed:\n1. POST /tasks/<task_id>/comments - Create a comment on a task\n2. POST /tasks/<task_id>/comments/<comment_id>/delete - Delete a comment\n\nNote: We're nesting comment routes under tasks because comments always belong to a task.\n\nThe Controller should:\n- Parse form data\n- Call Comment Model methods\n- Handle errors gracefully\n- Redirect back to task detail page",
+      "hint": "Nest comment routes under /tasks/<task_id>/comments for RESTful design",
+      "checkpoint": {
+        "type": "code",
+        "description": "Create CommentController with create route",
+        "instructions": "Create a new controller file with a Blueprint and a route to create comments.",
+        "codeTemplate": "\"\"\"\nComment Controller - Handles comment-related HTTP requests.\n\nMVC Role: CONTROLLER\n- Receives HTTP requests for comment operations\n- Calls Comment Model methods\n- Handles errors and redirects\n- Returns responses to client\n\nURL Prefix: Nested under tasks (/tasks/<task_id>/comments)\n\nRoutes:\n    POST /tasks/<task_id>/comments          - Create comment\n    POST /tasks/<task_id>/comments/<id>/delete - Delete comment\n\nCovered in: Lesson 8 (building a complete feature)\n\"\"\"\n\nfrom flask import Blueprint, request, redirect, url_for, flash\nfrom backend.models.comment import Comment\nfrom backend.utils.decorators import log_method_call\n\n# Create Blueprint for comment routes\n# Nested under tasks for RESTful URLs\ncomments_bp = Blueprint('comments', __name__)\n\n\n@comments_bp.route('/tasks/<int:task_id>/comments', methods=['POST'])\n@log_method_call\ndef create(task_id):\n    \"\"\"\n    Create a new comment on a task.\n    \n    MVC Flow:\n    1. Controller receives POST /tasks/<id>/comments\n    2. Controller extracts content and user_id from form\n    3. Controller calls Comment.create(content, task_id, user_id)\n    4. Model validates and inserts\n    5. Controller redirects back to task detail with message\n    \n    HTTP: POST /tasks/<task_id>/comments\n    Form data: content, user_id\n    \n    Note: In a real app, user_id would come from session/auth.\n    For learning, we pass it in the form.\n    \"\"\"\n    # Get form data\n    content = request.form.get('content', '').strip()\n    user_id = request.form.get('user_id', '').strip()\n    \n    # ADD YOUR CODE HERE:\n    # 1. Convert user_id to integer\n    # 2. Try to create the comment\n    # 3. Handle ValueError (validation errors)\n    # 4. Flash success or error message\n    # 5. Redirect to task detail page\n    \n    return redirect(url_for('tasks.show', task_id=task_id))",
+        "validator": {
+          "type": "static",
+          "checks": [
+            {
+              "type": "regex",
+              "pattern": "Comment\\.create",
+              "message": "Must call Comment.create() to save the comment",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "request\\.form\\.get",
+              "message": "Must get form data from request",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "try.*except.*ValueError",
+              "message": "Should handle ValueError for validation errors",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "flash\\(",
+              "message": "Should use flash() for user feedback",
+              "required": true
+            }
+          ]
+        },
+        "testSteps": [
+          "Create backend/controllers/comment_controller.py",
+          "Register the blueprint in app.py: app.register_blueprint(comments_bp)",
+          "Test creating a comment via form submission",
+          "Check the comment appears in the database"
+        ],
+        "hints": [
+          "Use try/except ValueError to catch validation errors",
+          "Flash 'Comment added!' on success",
+          "Always redirect back to url_for('tasks.show', task_id=task_id)"
+        ]
+      }
+    },
+    {
+      "id": "8-6",
+      "title": "Part C (continued): Register Blueprint",
+      "content": "Register the comment controller blueprint in the app.\n\nOpen: backend/app.py\n\nAdd:\n1. Import the comments blueprint\n2. Register it with app.register_blueprint()\n\nThis connects your new routes to the Flask app.",
+      "hint": "Look at how tasks_bp and users_bp are registered in app.py",
+      "checkpoint": {
+        "type": "code",
+        "description": "Register comments_bp in app.py",
+        "instructions": "Import and register the comments blueprint so the routes are accessible.",
+        "codeTemplate": "# In backend/app.py, add these lines:\n\n# Import comment controller (add near other controller imports)\nfrom backend.controllers.comment_controller import comments_bp\n\n# Register blueprint (add near other register_blueprint calls)\napp.register_blueprint(comments_bp)",
+        "validator": {
+          "type": "static",
+          "checks": [
+            {
+              "type": "regex",
+              "pattern": "from backend.controllers.comment_controller import comments_bp",
+              "message": "Must import comments_bp from comment_controller",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "register_blueprint\\(comments_bp\\)",
+              "message": "Must register comments_bp with the app",
+              "required": true
+            }
+          ]
+        },
+        "testSteps": [
+          "Add the import and registration to app.py",
+          "Restart the Flask server",
+          "Verify no import errors in the console",
+          "POST to /tasks/1/comments should now work (even if form doesn't exist yet)"
+        ],
+        "hints": [
+          "Add the import near the other controller imports",
+          "Add register_blueprint near the other blueprint registrations",
+          "The app should restart automatically if using debug mode"
+        ]
+      }
+    },
+    {
+      "id": "8-7",
+      "title": "Part D: Add Comments Section to View",
+      "content": "Now add a comments section to the task detail page.\n\nOpen: backend/templates/tasks/show.html\n\nAdd:\n1. A section showing existing comments\n2. Each comment shows: content, author name, timestamp\n3. A form to add new comments\n\nFirst, update the Controller to load comments.",
+      "hint": "The Controller needs to load comments and pass them to the View",
+      "checkpoint": {
+        "type": "code",
+        "description": "Load comments in TaskController.show()",
+        "instructions": "Update the show() method to also load comments for the task and pass them to the template.",
+        "codeTemplate": "# In TaskController.show(), add before the return statement:\n\n# Import Comment model at top of file\nfrom backend.models.comment import Comment\n\n# In show() method, load comments for this task\ncomments = Comment.get_by_task_id(task_id)\n\n# Pass comments to template\nreturn tracked_render_template('tasks/show.html', \n                               task=task, \n                               comments=comments)",
+        "validator": {
+          "type": "static",
+          "checks": [
+            {
+              "type": "regex",
+              "pattern": "Comment\\.get_by_task_id",
+              "message": "Must call Comment.get_by_task_id() to load comments",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "comments=comments",
+              "message": "Must pass comments to the template",
+              "required": true
+            }
+          ]
+        },
+        "testSteps": [
+          "Add the import for Comment model",
+          "Add Comment.get_by_task_id(task_id) in show() method",
+          "Pass comments to the template",
+          "View a task detail page - no error means it works"
+        ],
+        "hints": [
+          "Add the Comment import with the other model imports",
+          "Load comments after checking the task exists",
+          "The template will receive both 'task' and 'comments' variables"
+        ]
+      }
+    },
+    {
+      "id": "8-8",
+      "title": "Part D (continued): Render Comments in Template",
+      "content": "Now add the HTML to display comments.\n\nOpen: backend/templates/tasks/show.html\n\nAdd a comments section that:\n1. Shows a heading with comment count\n2. Lists each comment with author and timestamp\n3. Includes a form to add new comments",
+      "hint": "Use a for loop to iterate over comments",
+      "checkpoint": {
+        "type": "code",
+        "description": "Add comments section to task detail template",
+        "instructions": "Add HTML to display comments and a form to add new ones.",
+        "codeTemplate": "<!-- Add this comments section to tasks/show.html -->\n\n<section class=\"comments-section\">\n    <h3>Comments ({{ comments|length }})</h3>\n    \n    {% if comments %}\n        <div class=\"comments-list\">\n            {% for comment in comments %}\n                <div class=\"comment\">\n                    <!-- ADD YOUR CODE HERE: -->\n                    <!-- 1. Show comment.content -->\n                    <!-- 2. Show comment.user.name -->\n                    <!-- 3. Show comment.created_at formatted nicely -->\n                </div>\n            {% endfor %}\n        </div>\n    {% else %}\n        <p class=\"no-comments\">No comments yet. Be the first!</p>\n    {% endif %}\n    \n    <form action=\"{{ url_for('comments.create', task_id=task.id) }}\" \n          method=\"POST\" \n          class=\"comment-form\">\n        \n        <!-- ADD YOUR CODE HERE: -->\n        <!-- 1. Textarea for content with name=\"content\" -->\n        <!-- 2. Hidden or select field for user_id (for demo) -->\n        <!-- 3. Submit button -->\n        \n    </form>\n</section>\n\n<style>\n.comments-section {\n    margin-top: 2rem;\n    padding-top: 1rem;\n    border-top: 1px solid #eee;\n}\n.comment {\n    padding: 1rem;\n    margin-bottom: 0.5rem;\n    background: #f9f9f9;\n    border-radius: 4px;\n}\n.comment-meta {\n    font-size: 0.85rem;\n    color: #666;\n    margin-top: 0.5rem;\n}\n.comment-form {\n    margin-top: 1rem;\n}\n.comment-form textarea {\n    width: 100%;\n    padding: 0.5rem;\n    border: 1px solid #ccc;\n    border-radius: 4px;\n    min-height: 80px;\n}\n</style>",
+        "validator": {
+          "type": "static",
+          "checks": [
+            {
+              "type": "regex",
+              "pattern": "comment\\.content",
+              "message": "Must display comment.content",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "comment\\.user\\.name|comment\\['user'\\]\\['name'\\]",
+              "message": "Must display comment author name (comment.user.name)",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "name=['\"]content['\"]",
+              "message": "Must have a textarea or input with name='content'",
+              "required": true
+            },
+            {
+              "type": "regex",
+              "pattern": "comments\\.create",
+              "message": "Form action must point to comments.create route",
+              "required": true
+            }
+          ]
+        },
+        "testSteps": [
+          "Add the comments section to show.html",
+          "View a task detail page",
+          "Verify the comment form appears",
+          "Try adding a comment",
+          "Verify the new comment appears in the list"
+        ],
+        "hints": [
+          "Use {{ comment.content }} to display the comment text",
+          "Use {{ comment.user.name }} to show author name",
+          "Use {{ comment.created_at }} for timestamp",
+          "For demo, you can use a hidden input: <input type='hidden' name='user_id' value='1'>"
+        ]
+      }
+    },
+    {
+      "id": "8-9",
+      "title": "Part E: Complete Integration",
+      "content": "Final step: verify everything works together!\n\nTest the complete feature:\n\n1. Go to any task detail page (/tasks/1)\n2. You should see:\n   - Task details\n   - Comments section (empty or with comments)\n   - Comment form\n\n3. Add a comment:\n   - Type some text\n   - Submit the form\n   - Page should reload with your comment\n\n4. Open Developer Panel and check:\n\n**Method Call Stack:**\n- TaskController.show()\n  - Task.get_by_id()\n  - Comment.get_by_task_id()\n- Template rendered with task + comments\n\n**Database Inspector:**\n- SELECT for task (with JOINs)\n- SELECT for comments (with JOINs)\n\n**State Inspector:**\n- task object with all fields\n- comments array with nested user objects\n\n5. Add another comment and verify the count increases.\n\n6. Check relationships:\n   - Each comment shows the correct author name\n   - Comments are ordered by time\n   - No N+1 queries (check Database Inspector)",
+      "hint": "Use the Developer Panel to verify the complete MVC flow",
+      "checkpoint": null
+    },
+    {
+      "id": "8-10",
+      "title": "Capstone Complete!",
+      "content": "Congratulations! You've built a complete MVC feature from scratch!\n\nWhat you accomplished:\n1. Designed a new database schema (comments table)\n2. Created a new Model (Comment) with CRUD operations\n3. Built a new Controller (CommentController) with routes\n4. Updated an existing View to display and create comments\n5. Handled relationships between three entities (Comments, Tasks, Users)\n6. Used JOINs to avoid N+1 query problems\n7. Implemented proper validation and error handling\n\nYou followed MVC separation:\n- Model: All database logic in Comment class\n- View: HTML templates display data, forms collect input\n- Controller: Routes parse requests, call models, render views\n\nThis is exactly how you build features in production MVC applications!\n\nNext steps:\n- Try adding a delete comment feature\n- Add edit functionality for comments\n- Add user authentication to track who's commenting\n\nYou now understand MVC architecture in practice!",
+      "hint": "You've mastered the MVC pattern - apply these concepts to any feature!",
+      "checkpoint": {
+        "type": "quiz",
+        "question": "When building the Comments feature, you created relationships between three tables. Which statement correctly describes these relationships?",
+        "options": [
+          "Comments belong to Tasks and Users (many-to-one), Tasks and Users have many Comments (one-to-many)",
+          "Comments, Tasks, and Users all have many-to-many relationships",
+          "Comments belong to Tasks only, Users are unrelated",
+          "Tasks contain Comments directly in the same table"
+        ],
+        "correct": "Comments belong to Tasks and Users (many-to-one), Tasks and Users have many Comments (one-to-many)"
+      }
+    }
+  ]
+}
