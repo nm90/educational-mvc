@@ -35,14 +35,17 @@ def log_method_call(func: Callable) -> Callable:
     method call stack for each request.
 
     MVC Flow Impact:
-    1. When a Controller calls a Model method, this decorator intercepts it
-    2. Records method name, arguments, return value, and execution time
-    3. Stores in g.tracking['method_calls'] (request-scoped)
-    4. After request completes, Flask middleware injects all tracking data
+    1. When a Controller route handler runs, this decorator sets g.controller_name
+       (used by Network Inspector to show which controller handled the request)
+    2. When a Controller calls a Model method, this decorator intercepts it
+    3. Records method name, arguments, return value, and execution time
+    4. Stores in g.tracking['method_calls'] (request-scoped)
+    5. After request completes, Flask middleware injects all tracking data
        into HTML as window.__DEBUG__ object
-    5. Developer panel reads window.__DEBUG__ and displays method call tree
+    6. Developer panel reads window.__DEBUG__ and displays method call tree
 
     Dev Panel Shows:
+    - Network Inspector: Controller name (e.g., "tasks.create") for all requests
     - Hierarchical tree of all method calls during request
     - Each method shows: arguments, return value, execution time
     - Developers can inspect data without modifying code
@@ -82,10 +85,23 @@ def log_method_call(func: Callable) -> Callable:
     def wrapper(*args, **kwargs) -> Any:
         # Try to import Flask components (fail gracefully if not in request context)
         try:
-            from flask import g
+            from flask import g, request
         except RuntimeError:
             # Not in Flask request context - just run the function
             return func(*args, **kwargs)
+
+        # Set controller name for devPanel Network Inspector
+        # Uses request.endpoint which gives us "blueprint.function_name" (e.g., "tasks.create")
+        # Only set if not already set (first decorated function wins - the route handler)
+        # This ensures POST requests display controller name just like GET requests
+        if not hasattr(g, 'controller_name') or g.controller_name == 'Unknown':
+            try:
+                # request.endpoint gives us "blueprint.function" format
+                # e.g., "tasks.create", "users.index", "lessons.validate_checkpoint"
+                g.controller_name = request.endpoint or func.__name__
+            except RuntimeError:
+                # No request context - use function name as fallback
+                g.controller_name = func.__name__
 
         # Extract method name for logging
         # For instance methods, args[0] is 'self' - extract class from it
