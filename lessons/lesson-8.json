@@ -23,6 +23,10 @@
       "title": "Part A: Design Comment Schema",
       "content": "First, design the database table for comments.\n\nA Comment needs:\n- id: unique identifier (integer, primary key)\n- task_id: which task this comment belongs to (foreign key)\n- user_id: who wrote the comment (foreign key)\n- content: the comment text (string, required)\n- created_at: when it was written (timestamp)\n\nRelationships:\n- Each comment belongs to ONE task (many-to-one)\n- Each comment belongs to ONE user (many-to-one)\n- Each task can have MANY comments (one-to-many)\n- Each user can write MANY comments (one-to-many)\n\nCreate the migration file to add this table.",
       "hint": "Look at the existing schema in backend/database/schema.sql for reference",
+      "devPanelHint": {
+        "tab": "database",
+        "message": "Watch the Database Inspector to see your new CREATE TABLE query and understand the schema"
+      },
       "checkpoint": {
         "type": "code",
         "description": "Create comments table schema",

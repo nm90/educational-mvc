@@ -104,6 +104,9 @@ class LessonEngine {
             this.updateProgress();
             this.attachEventListeners();
 
+            // Emit event for dev panel hint on initial load
+            this.emitLessonStepChangedEvent();
+
             console.log(`✅ Lesson ${lessonId} loaded: "${lesson.title}"`);
             return lesson;
 
@@ -232,6 +235,9 @@ class LessonEngine {
         this.renderCurrentStep();
         this.updateProgress();
 
+        // Emit event for dev panel (and other listeners)
+        this.emitLessonStepChangedEvent();
+
         console.log(`Moving to step ${this.currentStepIndex + 1}...`);
         return true;
     }
@@ -254,6 +260,9 @@ class LessonEngine {
         // Update UI to show previous step
         this.renderCurrentStep();
         this.updateProgress();
+
+        // Emit event for dev panel (and other listeners)
+        this.emitLessonStepChangedEvent();
 
         console.log(`Moving to step ${this.currentStepIndex + 1}...`);
         return true;
@@ -1399,6 +1408,61 @@ class LessonEngine {
                 event.preventDefault();
                 this.nextStep();
             }
+        });
+    }
+
+    /**
+     * Emit lesson step changed event
+     *
+     * Broadcasts 'lesson:stepChanged' event so other components (like DevPanel)
+     * can react to lesson navigation.
+     *
+     * Event detail includes:
+     * - lessonId: Current lesson ID
+     * - stepId: Current step ID
+     * - step: Full step object (title, content, hint, checkpoint, devPanelHint)
+     * - devPanelHint: The dev panel hint for this step (if any)
+     *
+     * Listeners (like DevPanel) use this to:
+     * - Show relevant tab hints
+     * - Auto-open developer panel
+     * - Highlight relevant information
+     *
+     * MVC Role: Controller (LessonEngine coordinates lesson state and notifies other components)
+     *
+     * @returns {void}
+     */
+    emitLessonStepChangedEvent() {
+        if (!this.currentLesson) {
+            return;
+        }
+
+        const currentStep = this.getCurrentStep();
+        if (!currentStep) {
+            return;
+        }
+
+        // Create custom event with lesson step data
+        const event = new CustomEvent('lesson:stepChanged', {
+            detail: {
+                lessonId: this.currentLesson.id,
+                lessonTitle: this.currentLesson.title,
+                stepId: currentStep.id,
+                stepIndex: this.currentStepIndex,
+                step: currentStep,
+                devPanelHint: currentStep.devPanelHint || null
+            },
+            bubbles: true,
+            cancelable: false
+        });
+
+        // Dispatch event so DevPanel and other listeners can respond
+        document.dispatchEvent(event);
+
+        console.log('[LessonEngine] Emitted lesson:stepChanged event', {
+            lessonId: this.currentLesson.id,
+            stepId: currentStep.id,
+            hasDevPanelHint: !!currentStep.devPanelHint
         });
     }
 }

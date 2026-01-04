@@ -30,6 +30,10 @@
       "title": "The N+1 Query Problem",
       "content": "Here's a critical performance problem. Let's say you want to list all tasks with their owner names.\n\nBAD APPROACH (N+1 problem):\n```python\ntasks = Task.get_all()  # Query 1: Fetch all tasks\nfor task in tasks:\n    owner = User.get_by_id(task['owner_id'])  # Query 2, 3, 4...\n    print(f\"{task['title']} - Owner: {owner['name']}\")\n```\n\nFor 100 tasks, this causes 101 queries:\n- 1 query to get all tasks\n- 100 queries to get each owner (1 per task)\n- Total: 101 queries! 😱\n\nThis is called N+1 because you make 1 initial query + N additional queries.\n\nLook at Task.get_all() docstring (lines 345-369) - it shows this problem!\n\nGOOD APPROACH (eager loading):\n```python\ntasks = Task.get_all(include_relations=True)  # Single query with JOINs!\nfor task in tasks:\n    print(f\"{task['title']} - Owner: {task['owner']['name']}\")\n```\n\nFor 100 tasks, this causes 1 query with JOINs!\n✅ DO: Use include_relations=True when you need related data\n⚠️ DON'T: Loop and query users - it causes N+1 problem",
       "hint": "Read the N+1 Problem section in Task.get_all() docstring (lines 345-369)",
+      "devPanelHint": {
+        "tab": "database",
+        "message": "Watch the Database Inspector - see the difference between N+1 queries and efficient JOIN queries"
+      },
       "checkpoint": null
     },
     {
@@ -37,6 +41,10 @@
       "title": "JOINs and Eager Loading",
       "content": "Look at Task.get_by_id() with include_relations=True (lines 276-323).\n\nThe key SQL query:\n```sql\nSELECT\n    tasks.*,\n    owner.id as owner_user_id,\n    owner.name as owner_name,\n    ...\n    assignee.id as assignee_user_id,\n    assignee.name as assignee_name,\n    ...\nFROM tasks\nINNER JOIN users as owner ON tasks.owner_id = owner.id\nLEFT JOIN users as assignee ON tasks.assignee_id = assignee.id\nWHERE tasks.id = ?\n```\n\nNotice:\n- INNER JOIN users as owner: Gets owner data (required)\n- LEFT JOIN users as assignee: Gets assignee data (optional - could be NULL)\n- Single query retrieves both task AND user data\n\nThe Python code (lines 299-321) transforms the flat result into nested structure:\n```python\ntask = {\n    'id': result['id'],\n    'title': result['title'],\n    ...\n    'owner': {\n        'id': result['owner_user_id'],\n        'name': result['owner_name'],\n        ...\n    },\n    'assignee': {...} or None\n}\n```\n\nThis nested structure makes it easy to access data in templates and controllers.",
       "hint": "Look at the SQL query in Task.get_by_id() (lines 276-291) to see INNER JOIN and LEFT JOIN",
+      "devPanelHint": {
+        "tab": "database",
+        "message": "See the SQL with INNER JOIN and LEFT JOIN - notice how one query gets related data efficiently"
+      },
       "checkpoint": null
     },
     {
@@ -44,6 +52,10 @@
       "title": "Create a Task",
       "content": "Let's create a task and watch the relationships happen.\n\nIn the application UI, click 'Create Task' and fill in:\n- Title: 'Learn MVC Architecture'\n- Description: 'Understanding the Model-View-Controller pattern'\n- Status: 'todo'\n- Priority: 'high'\n- Owner: Select a user\n- Assignee: Select a user (or leave empty)\n\nClick 'Create'.\n\nOpen the Developer Panel 'Method Call Stack'.\n\nYou'll see:\n1. TaskController.create() called\n2. Task.validate() called\n   - Queries to check owner_id exists\n   - Queries to check assignee_id exists (if provided)\n3. Task.create() called\n4. INSERT query: INSERT INTO tasks (...) VALUES (...)\n5. Task.get_by_id() called to fetch the created task\n6. Template rendered\n\nNotice all the validation queries that ensure foreign keys exist!",
       "hint": "Create a task and watch the Method Call Stack to see foreign key validation",
+      "devPanelHint": {
+        "tab": "database",
+        "message": "See the INSERT query and the validation SELECT queries that check foreign keys exist"
+      },
       "checkpoint": null
     },
     {
@@ -51,6 +63,10 @@
       "title": "View Task with Relationships",
       "content": "Now view the task you just created.\n\nClick on it in the task list or view its detail page.\n\nOpen the Developer Panel and check:\n\n1. Method Call Stack:\n   - TaskController.show() called\n   - Task.get_by_id(task_id, include_relations=True) called\n   - No separate User queries!\n   - Task returned with nested owner and assignee\n\n2. Database Inspector:\n   - Single SELECT query with JOINs\n   - Shows the INNER JOIN for owner\n   - Shows the LEFT JOIN for assignee\n   - Much more efficient than N+1 approach\n\n3. State Inspector:\n   - Shows task data with nested owner object\n   - Shows assignee object (or null if unassigned)\n   - See the complete data structure\n\nCompare this to Lesson 2 where we saw the simple task list query.\nThis query is more complex but still just ONE query!",
       "hint": "View a task detail and check the Database Inspector to see the JOIN query",
+      "devPanelHint": {
+        "tab": "database",
+        "message": "See the complex JOIN query - one query fetches task data with owner and assignee relationships"
+      },
       "checkpoint": null
     }
   ],

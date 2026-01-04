@@ -22,6 +22,10 @@
       "title": "Trace the Index Request",
       "content": "Let's trace what happens when you load the task list.\n\nOpen: backend/controllers/task_controller.py, lines 81-121\n\nThe index() method handles GET /tasks:\n\n```python\n@tasks_bp.route('/', methods=['GET'])\n@log_method_call\ndef index():\n    # Call Model method to get all tasks\n    tasks = Task.get_all(include_relations=True)\n    \n    # Pass data to View template for rendering\n    return tracked_render_template('tasks/index.html', tasks=tasks)\n```\n\nNotice how SIMPLE this is! The Controller:\n1. Calls ONE Model method: Task.get_all()\n2. Passes result to ONE View: tasks/index.html\n3. That's it!\n\nThe Controller doesn't:\n- Write SQL queries\n- Validate data\n- Format HTML\n\nThis is the 'thin controller' principle in action.\n\nNow click 'View Tasks' and check the Developer Panel 'Method Call Stack'.\nYou'll see TaskController.index() calling Task.get_all().",
       "hint": "Load the task list and watch the Method Call Stack to see the Controller calling the Model",
+      "devPanelHint": {
+        "tab": "methods",
+        "message": "Watch the Method Call Stack to see TaskController.index() calling Task.get_all() - simple orchestration!"
+      },
       "checkpoint": null
     },
     {
@@ -29,6 +33,10 @@
       "title": "Multi-Model Coordination",
       "content": "Controllers often need to coordinate MULTIPLE Models.\n\nLook at the new() method (lines 176-217):\n\n```python\n@tasks_bp.route('/new', methods=['GET'])\n@log_method_call\ndef new():\n    # Load all users for owner and assignee dropdowns\n    users = User.get_all()\n    \n    # Render the form template with users for dropdowns\n    return tracked_render_template('tasks/new.html', users=users)\n```\n\nThis Controller method calls the User Model (not Task Model!) because:\n- The form needs a list of users for dropdown menus\n- Owner and Assignee fields are foreign keys to Users\n- Controller brings together data from different Models\n\nNow look at edit() method (lines 327-382):\n- Calls Task.get_by_id() to get the task to edit\n- Calls User.get_all() to populate dropdowns\n- Passes BOTH to the View\n\nThis is multi-model orchestration: the Controller coordinates multiple Models to prepare data for the View.\n\nClick 'Create Task' in the app and check the Method Call Stack.\nYou'll see TaskController.new() calling User.get_all().",
       "hint": "Click 'Create Task' and see how the Controller calls User.get_all() for the dropdown options",
+      "devPanelHint": {
+        "tab": "methods",
+        "message": "Watch the Method Call Stack to see TaskController.new() calling TWO Models: Task and User"
+      },
       "checkpoint": null
     },
     {
@@ -36,6 +44,10 @@
       "title": "Handling Model Errors",
       "content": "Controllers must handle errors from Models gracefully.\n\nLook at the create() method (lines 223-321):\n\n```python\ntry:\n    # Call Model to create task\n    task = Task.create(title, description, status, priority, owner_id, assignee_id)\n    flash('Task created successfully!', 'success')\n    return redirect(url_for('tasks.index'))\n\nexcept ValueError as e:\n    # Validation failed - Model raised an error\n    flash(str(e), 'error')\n    users = User.get_all()  # Re-load users for dropdowns\n    return tracked_render_template('tasks/new.html', users=users, ...)\n```\n\nThe pattern:\n1. Controller calls Model method\n2. Model validates and may raise ValueError\n3. Controller catches the error\n4. Controller re-renders form with error message\n\nNotice:\n- The Controller doesn't know WHY validation failed (that's Model's job)\n- The Controller just knows it failed and shows the error\n- The Controller re-loads users for dropdowns before re-rendering\n\nThis separation means validation rules can change in the Model without touching the Controller!",
       "hint": "Look at the try/except block in create() to see how Controllers handle Model errors",
+      "devPanelHint": {
+        "tab": "methods",
+        "message": "See how TaskController.create() catches Model exceptions - try submitting invalid data"
+      },
       "checkpoint": null
     },
     {
@@ -43,6 +55,10 @@
       "title": "The Show Pattern",
       "content": "Controllers often need to handle 'not found' cases.\n\nLook at the show() method (lines 127-170):\n\n```python\n@tasks_bp.route('/<int:task_id>', methods=['GET'])\n@log_method_call\ndef show(task_id):\n    # Call Model to get task by ID\n    task = Task.get_by_id(task_id, include_relations=True)\n    \n    # Handle not found case\n    if not task:\n        flash('Task not found', 'error')\n        return tracked_render_template('errors/404.html'), 404\n    \n    # Pass task data to View\n    return tracked_render_template('tasks/show.html', task=task)\n```\n\nThe pattern:\n1. Controller receives ID from URL\n2. Controller asks Model for that record\n3. Model returns the record OR None if not found\n4. Controller checks the result\n5. Controller either shows 404 OR renders the task\n\nThis is a common pattern you'll use in every Controller:\n- Check if Model returned None\n- Handle the not-found case appropriately\n- Otherwise proceed with the data\n\nClick on a specific task and check the Method Call Stack.",
       "hint": "Click on a task to see TaskController.show() calling Task.get_by_id()",
+      "devPanelHint": {
+        "tab": "methods",
+        "message": "See TaskController.show() with the JOINed task data - notice the complete nested structure"
+      },
       "checkpoint": null
     },
     {

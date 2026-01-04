@@ -59,6 +59,7 @@ class DevPanel {
      * 2. Insert into document
      * 3. Attach event listeners (Controller)
      * 4. Load debug data from window.__DEBUG__
+     * 5. Listen for lesson changes for guided learning
      *
      * Called once on page load.
      */
@@ -76,6 +77,9 @@ class DevPanel {
 
         // Restore panel state from localStorage
         this.restoreState();
+
+        // Listen for lesson step changes to show relevant hints
+        this.listenToLessonChanges();
 
         console.log('[DevPanel] Developer panel ready');
     }
@@ -2513,6 +2517,146 @@ class DevPanel {
         if (savedWidth || savedHeight) {
             console.log('[DevPanel] Size restored:', { savedWidth, savedHeight });
         }
+    }
+
+    /**
+     * highlightTab(tabName) - Highlight a tab for lesson guidance
+     *
+     * Called when a lesson step has a devPanelHint.
+     * Adds visual emphasis to guide students to the relevant tab.
+     *
+     * Effects:
+     * - Adds pulsing border animation to tab button
+     * - Auto-opens the tab
+     * - Adds "Lesson recommends" badge
+     * - Highlights disappear when user clicks another tab
+     *
+     * @param {string} tabName - Tab to highlight (state, methods, flow, network, database)
+     * @returns {void}
+     */
+    highlightTab(tabName) {
+        // Validate tab exists
+        if (!this.tabs[tabName]) {
+            console.warn(`[DevPanel] Tab "${tabName}" not found for lesson hint`);
+            return;
+        }
+
+        // Remove any existing highlights
+        this.clearHighlights();
+
+        // Get the tab button
+        const tabBtn = this.tabs[tabName];
+
+        // Add pulsing highlight class
+        tabBtn.classList.add('lesson-hint-highlight');
+
+        // Add "Lesson recommends" badge to tab
+        const badge = document.createElement('span');
+        badge.className = 'lesson-hint-badge';
+        badge.textContent = '✨ Lesson';
+        badge.title = 'This tab has been recommended by the current lesson';
+        tabBtn.appendChild(badge);
+
+        // Auto-switch to the recommended tab (if not already on it)
+        if (this.currentTab !== tabName) {
+            this.switchTab(tabName);
+        }
+
+        // Auto-open the panel if closed
+        if (!this.isOpen) {
+            this.open();
+        }
+
+        console.log(`[DevPanel] Lesson hint: Highlighted tab "${tabName}"`);
+    }
+
+    /**
+     * clearHighlights() - Remove all lesson-related highlights
+     *
+     * Called when:
+     * - User clicks another tab (dismisses the hint)
+     * - Lesson step changes
+     * - Tutorial Mode is exited
+     *
+     * Removes:
+     * - Pulsing border animation
+     * - "Lesson recommends" badges
+     * - Any other lesson-related visual emphasis
+     *
+     * @returns {void}
+     */
+    clearHighlights() {
+        // Remove highlight class from all tabs
+        Object.entries(this.tabs).forEach(([name, btn]) => {
+            btn.classList.remove('lesson-hint-highlight');
+
+            // Remove badge
+            const badge = btn.querySelector('.lesson-hint-badge');
+            if (badge) {
+                badge.remove();
+            }
+        });
+
+        console.log('[DevPanel] Cleared all lesson highlights');
+    }
+
+    /**
+     * listenToLessonChanges() - Subscribe to lesson step changes
+     *
+     * Sets up event listener to respond to lesson navigation.
+     * When students move between lesson steps, this updates dev panel hints.
+     *
+     * MVC Flow:
+     * 1. Student clicks "Next Step" in lesson panel
+     * 2. LessonEngine emits 'lesson:stepChanged' event
+     * 3. DevPanel catches event and extracts devPanelHint
+     * 4. If hint exists, calls highlightTab()
+     * 5. If no hint, clears previous highlights
+     *
+     * Event data structure:
+     * {
+     *   lessonId: 2,
+     *   stepId: "2-3",
+     *   step: { title, content, hint, devPanelHint, checkpoint },
+     *   devPanelHint: { tab: "methods", message: "..." }
+     * }
+     *
+     * @returns {void}
+     */
+    listenToLessonChanges() {
+        // Listen for lesson step changes
+        document.addEventListener('lesson:stepChanged', (event) => {
+            const detail = event.detail || {};
+            const devPanelHint = detail.devPanelHint;
+
+            if (devPanelHint) {
+                // Student is on a step with a dev panel hint
+                console.log('[DevPanel] Lesson hint received:', devPanelHint);
+
+                // Highlight the recommended tab
+                this.highlightTab(devPanelHint.tab);
+
+                // Optional: Log the message for debugging
+                if (devPanelHint.message) {
+                    console.log(`[DevPanel] Lesson says: ${devPanelHint.message}`);
+                }
+            } else {
+                // No hint for this step - clear previous highlights
+                this.clearHighlights();
+            }
+        });
+
+        // Also listen when lesson mode is closed
+        document.addEventListener('lesson:modeChanged', (event) => {
+            const detail = event.detail || {};
+            if (!detail.tutorialModeActive) {
+                // Tutorial mode closed - clear highlights
+                this.clearHighlights();
+                console.log('[DevPanel] Tutorial mode exited, cleared highlights');
+            }
+        });
+
+        console.log('[DevPanel] Listening for lesson changes');
     }
 }
 

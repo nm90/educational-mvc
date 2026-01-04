@@ -22,6 +22,10 @@
       "title": "Part 1: Add Model Method",
       "content": "First, add a new method to the Task Model.\n\nOpen: backend/models/task.py\n\nAdd a new static method by_status() after the get_all() method (around line 428).\n\nThis method should:\n1. Accept a status parameter ('todo', 'in-progress', or 'done')\n2. Query the database for tasks with that status\n3. Include relations (owner, assignee) for efficient loading\n4. Return the filtered list of tasks\n\nHere's the structure to follow:",
       "hint": "Look at how get_all() works and adapt it to filter by status",
+      "devPanelHint": {
+        "tab": "database",
+        "message": "Check the Database Inspector to see your WHERE clause filtering tasks by status"
+      },
       "checkpoint": {
         "type": "code",
         "description": "Add Task.by_status() method to filter tasks",
@@ -69,6 +73,10 @@
       "title": "Part 2: Update Controller",
       "content": "Now update the Controller to accept a status filter.\n\nOpen: backend/controllers/task_controller.py\n\nModify the index() method (lines 81-121) to:\n1. Get the 'status' query parameter from the request\n2. If status is provided, call Task.by_status(status)\n3. Otherwise, call Task.get_all() as before\n4. Pass the filtered or full list to the View\n\nThe Controller should also handle invalid status values gracefully.",
       "hint": "Use request.args.get('status') to get the query parameter",
+      "devPanelHint": {
+        "tab": "methods",
+        "message": "Watch the Method Call Stack to see TaskController.index() calling Task.by_status() with your filter"
+      },
       "checkpoint": {
         "type": "code",
         "description": "Update TaskController.index() to filter by status",

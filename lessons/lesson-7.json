@@ -22,6 +22,10 @@
       "title": "Part 1: Add Model Method",
       "content": "Add a specialized method for updating just the priority.\n\nOpen: backend/models/task.py\n\nWhy not use the existing update() method?\n- update() requires ALL fields (title, description, status, priority, owner_id)\n- We just want to change ONE field\n- A specialized method is cleaner and safer\n\nAdd update_priority() after the update() method (around line 520).\n\nThis method should:\n1. Accept task_id and new priority value\n2. Validate the priority value ('low', 'medium', 'high')\n3. Check the task exists\n4. Update ONLY the priority field\n5. Return the updated task (or None if not found)",
       "hint": "This method only updates one field, making it simpler than the full update()",
+      "devPanelHint": {
+        "tab": "database",
+        "message": "Watch the Database Inspector to see the UPDATE query changing task priority"
+      },
       "checkpoint": {
         "type": "code",
         "description": "Add Task.update_priority() method",
@@ -74,6 +78,10 @@
       "title": "Part 2: Add Controller Route",
       "content": "Create a new route for priority updates.\n\nOpen: backend/controllers/task_controller.py\n\nAdd a new route after the update() method (around line 510):\n- Route: POST /tasks/<id>/priority\n- Accept priority value from form data\n- Call Task.update_priority()\n- Handle success, not found, and validation errors\n- Return appropriate response (redirect or JSON)",
       "hint": "Follow the same error handling pattern as the create() and update() methods",
+      "devPanelHint": {
+        "tab": "methods",
+        "message": "Watch the Method Call Stack to see TaskController handling POST request and calling Task.update_priority()"
+      },
       "checkpoint": {
         "type": "code",
         "description": "Add POST /tasks/<id>/priority route",

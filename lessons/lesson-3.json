@@ -15,6 +15,10 @@
       "title": "Read the User Model Code",
       "content": "The User Model defines the structure and rules for user data.\n\nOpen: backend/models/user.py\n\nKey sections:\n- Lines 28-39: User class docstring explaining MVC role\n- Lines 42-43: EMAIL_PATTERN constant\n- Lines 46-90: validate() method\n- Lines 92-140: create() method\n- Lines 142-174: get_by_id() method\n\nNotice:\n- The Model VALIDATES data before saving\n- The Model QUERIES the database\n- The Model returns data structures (dicts) to controllers\n- Business rules (like email validation) live in the Model\n\n✅ DO: Keep validation in the Model\n⚠️ DON'T: Validate in the Controller or View",
       "hint": "Read the User class docstring (lines 28-39) to understand its MVC role",
+      "devPanelHint": {
+        "tab": "state",
+        "message": "View the loaded User model data in the State Inspector"
+      },
       "checkpoint": null
     },
     {
@@ -22,6 +26,10 @@
       "title": "Understand Validation Rules",
       "content": "The User.validate() method (lines 46-90) checks two things:\n\n1. Name validation:\n   - Must not be empty or just whitespace\n   - Raises ValueError if invalid\n\n2. Email validation:\n   - Must not be empty\n   - Must match the EMAIL_PATTERN regex\n   - EMAIL_PATTERN is defined at line 43: r'^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$'\n\nThis regex checks:\n- Before @: word characters, dots, or hyphens\n- After @: same pattern\n- Ends with domain (period + word characters)\n\nValid emails: alice@example.com, bob.smith@test.co.uk\nInvalid emails: alice@, @example.com, alice (no @), alice@example (no TLD)\n\nWhy validate in the Model?\n- Ensures data integrity (all users have valid names/emails)\n- Prevents garbage data from reaching the database\n- Different frontends (web, mobile, API) all use same validation",
       "hint": "Look at lines 43-90 to see the validation rules and patterns",
+      "devPanelHint": {
+        "tab": "methods",
+        "message": "Watch for User.validate() calls in the Method Call Stack when testing validation"
+      },
       "checkpoint": null
     },
     {
@@ -29,6 +37,10 @@
       "title": "Create a New User",
       "content": "Now let's create a user and watch the validation happen.\n\nIn the application UI, click 'Create User' and fill in the form:\n- Name: Your name (or 'Test User')\n- Email: Your email (or 'test@example.com')\n\nThen click 'Create'.\n\nOpen the Developer Panel and check the 'Method Call Stack' tab.\n\nYou'll see:\n1. UserController.create() called\n2. User.validate() called with your data\n3. User.create() called (if validation passed)\n4. Database INSERT query executed\n5. User.get_by_id() called to fetch the newly created user\n6. Template rendered with the new user\n\nEach step is visible with exact arguments and return values!",
       "hint": "Create a user and watch the Method Call Stack to see each step",
+      "devPanelHint": {
+        "tab": "methods",
+        "message": "Watch the Method Call Stack as you create a user - see User.validate() and User.create() being called"
+      },
       "checkpoint": null
     },
     {
@@ -36,6 +48,10 @@
       "title": "Try Invalid Data",
       "content": "Test the validation by submitting invalid data.\n\nTry creating a user with:\n- Empty name (just spaces)\n- Invalid email (like 'notanemail' or 'test@')\n\nWatch what happens:\n1. The form submits to the Controller\n2. Controller calls User.validate()\n3. Validation fails and raises ValueError\n4. Controller catches the error and re-renders the form with error message\n\nIn the Developer Panel 'Method Call Stack':\n- You'll see User.validate() called\n- It raised ValueError\n- The error was caught\n- No INSERT query happened (data never touched database)\n\nThis shows why validation in the Model is essential - it prevents invalid data from being saved!",
       "hint": "Try submitting an invalid email and watch the Method Call Stack show the validation error",
+      "devPanelHint": {
+        "tab": "methods",
+        "message": "See User.validate() raise an exception - watch how the Controller handles the error"
+      },
       "checkpoint": null
     },
     {
@@ -43,6 +59,10 @@
       "title": "Code Checkpoint: Add .edu Validation",
       "content": "Now it's your turn! Add a validation rule to check that emails end with '.edu'.\n\nYour task:\n1. Look at the code template below\n2. The validation should check if email ends with '.edu'\n3. If not, raise a ValueError with the message: 'Email must be a .edu domain'\n\nThe code template already shows the existing validation. Add your check after the email format validation.",
       "hint": "Use email.endswith('.edu') to check the domain suffix",
+      "devPanelHint": {
+        "tab": "methods",
+        "message": "Watch CheckpointValidator.validate_checkpoint() in the Method Call Stack as you validate your code"
+      },
       "checkpoint": {
         "type": "code",
         "description": "Add email validation for .edu domain only",
