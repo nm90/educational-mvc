@@ -1378,4 +1378,4 @@ tests/
 
 ---
 
-**For questions or clarifications, see [README.md](../README.md) or [PROJECT_BRIEF.md](../PROJECT_BRIEF.md).**
+**For questions or clarifications, see [README.md](../README.md) or [PROJECT_BRIEF.md](PROJECT_BRIEF.md).**

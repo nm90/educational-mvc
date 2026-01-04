@@ -39,7 +39,7 @@ By completing the 8 interactive lessons and exploring the codebase, you'll under
 
 **Philosophy**: No magic. Every line of code is inspectable. Developers can watch data flow through the MVC layers in real-time.
 
-For detailed architecture and design decisions, see [PROJECT_BRIEF.md](PROJECT_BRIEF.md).
+For detailed architecture and design decisions, see [PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md).
 
 ---
 
@@ -115,7 +115,7 @@ sudo usermod -aG docker $USER
 newgrp docker  # Apply group changes immediately
 ```
 
-For detailed Docker instructions and troubleshooting, see [DOCKER.md](DOCKER.md).
+For detailed Docker instructions and troubleshooting, see [DOCKER.md](docs/DOCKER.md).
 
 ### Option 2: Local Setup
 
@@ -424,13 +424,15 @@ educational-mvc/
 │   └── lesson-8.json          # Comments feature (advanced)
 ├── docker/                    # Docker configuration
 ├── docs/                      # Documentation
+│   ├── ARCHITECTURE.md        # Technical architecture deep dive
+│   ├── PROJECT_BRIEF.md       # Architecture and design decisions
+│   ├── IMPLEMENTATION_PLAN.md # Development roadmap and feature breakdown
+│   └── DOCKER.md              # Docker setup instructions
 ├── implementation-scripts/    # Development helper scripts
 ├── package.json              # npm scripts and dependencies
 ├── requirements.txt          # Python dependencies
 ├── docker-compose.yml        # Docker orchestration
 ├── Dockerfile                # Docker image definition
-├── PROJECT_BRIEF.md          # Architecture and design decisions
-├── DOCKER.md                 # Docker setup instructions
 └── README.md                 # This file
 ```
 
@@ -486,9 +488,9 @@ Once you've finished all 8 lessons:
 
 | Document | Description |
 |----------|-------------|
-| [PROJECT_BRIEF.md](PROJECT_BRIEF.md) | Complete project overview, architecture decisions, and philosophy |
-| [DOCKER.md](DOCKER.md) | Docker setup, configuration, and troubleshooting |
-| [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) | Development roadmap and feature breakdown |
+| [PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md) | Complete project overview, architecture decisions, and philosophy |
+| [DOCKER.md](docs/DOCKER.md) | Docker setup, configuration, and troubleshooting |
+| [IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) | Development roadmap and feature breakdown |
 
 **Coming Soon:**
 - `ARCHITECTURE.md` - Deep dive into implementation details
@@ -572,7 +574,7 @@ This project was created to make MVC architecture transparent and understandable
 
 ## 📞 Support
 
-- **Documentation**: Start with [PROJECT_BRIEF.md](PROJECT_BRIEF.md)
+- **Documentation**: Start with [PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md)
 - **Issues**: Report bugs or request features via [GitHub Issues](https://github.com/yourusername/educational-mvc/issues)
 - **Questions**: Check existing issues or open a new discussion
 

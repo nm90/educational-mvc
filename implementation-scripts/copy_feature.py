@@ -2,7 +2,7 @@
 """
 Copy Feature Extractor
 
-Extracts feature details and agent prompt from IMPLEMENTATION_PLAN.md
+Extracts feature details and agent prompt from docs/IMPLEMENTATION_PLAN.md
 for easy copy-paste to agents.
 
 Usage:
@@ -21,7 +21,7 @@ from pathlib import Path
 def get_plan_file():
     """Get the path to IMPLEMENTATION_PLAN.md"""
     script_dir = Path(__file__).parent
-    plan_file = script_dir.parent / "IMPLEMENTATION_PLAN.md"
+    plan_file = script_dir.parent / "docs" / "IMPLEMENTATION_PLAN.md"
 
     if not plan_file.exists():
         print(f"Error: IMPLEMENTATION_PLAN.md not found at {plan_file}")

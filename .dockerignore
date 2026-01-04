@@ -59,8 +59,8 @@ docker-compose*.yml
 *.md
 *.MD
 docs/
-IMPLEMENTATION_PLAN.*
-PROJECT_BRIEF.md
+docs/IMPLEMENTATION_PLAN.md
+docs/PROJECT_BRIEF.md
 
 # Implementation scripts
 implementation-scripts/

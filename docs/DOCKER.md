@@ -438,5 +438,5 @@ For issues or questions:
 ## Related Documentation
 
 - [README.md](README.md) - Project overview
-- [PROJECT_BRIEF.md](PROJECT_BRIEF.md) - Architecture details
-- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) - Development roadmap
+- [PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md) - Architecture details
+- [IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) - Development roadmap

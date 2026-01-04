@@ -2644,13 +2644,13 @@ TASK:
    WORKDIR /app
 
    # Install Python dependencies
-   COPY requirements.txt .
+   COPY ../requirements.txt .
    RUN pip install --no-cache-dir -r requirements.txt
 
    # Copy application code
-   COPY backend/ ./backend/
-   COPY frontend/ ./frontend/
-   COPY lessons/ ./lessons/
+   COPY ../backend ./backend/
+   COPY ../frontend ./frontend/
+   COPY ../lessons ./lessons/
 
    # Expose port
    EXPOSE 5000
