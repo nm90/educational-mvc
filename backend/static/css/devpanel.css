@@ -1366,3 +1366,149 @@
 .request-selector-dropdown::-webkit-scrollbar-thumb:hover {
     background-color: #5a5a5a;
 }
+
+/* ============================================================================
+   ERRORS TAB STYLES
+   ============================================================================ */
+
+/* Empty state when no errors */
+.errors-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--color-text-secondary);
+}
+
+.errors-empty p:first-child {
+    font-size: 16px;
+    margin-bottom: 10px;
+}
+
+/* Errors header with summary */
+.errors-header {
+    padding: 15px;
+    background-color: var(--color-bg-secondary);
+    border-bottom: 1px solid #333;
+}
+
+.errors-summary {
+    font-size: 12px;
+}
+
+/* Errors list container */
+.errors-list {
+    padding: 10px;
+    overflow-y: auto;
+    max-height: calc(100vh - 300px);
+}
+
+/* Individual error node */
+.error-node {
+    display: flex;
+    align-items: flex-start;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: var(--color-bg-secondary);
+    border-left: 3px solid #f48771;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.error-node:hover {
+    background-color: #2a2a2a;
+}
+
+/* Error toggle button (expand/collapse) */
+.error-toggle {
+    background: none;
+    border: none;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 8px;
+    margin-right: 8px;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+}
+
+.error-toggle:hover {
+    color: var(--color-accent-secondary);
+}
+
+.error-toggle:focus {
+    outline: var(--focus-outline);
+    outline-offset: 2px;
+}
+
+/* Error header (type badge + message) */
+.error-header {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.error-type-badge {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.error-message {
+    color: var(--color-text-primary);
+    font-size: 13px;
+    flex: 1;
+}
+
+/* Error details (expanded content) */
+.error-details {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: var(--color-bg-primary);
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.error-details.hidden {
+    display: none;
+}
+
+/* Error section within details */
+.error-section {
+    margin-bottom: 15px;
+}
+
+.error-section:last-child {
+    margin-bottom: 0;
+}
+
+.error-section-title {
+    font-weight: bold;
+    color: var(--color-accent-secondary);
+    margin-bottom: 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Error query display */
+.error-query {
+    margin: 0;
+    background: #1e1e1e;
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+/* Learning note styling */
+.error-section ul {
+    list-style-type: disc;
+}
+
+.error-section li {
+    margin-bottom: 4px;
+}

@@ -266,6 +266,24 @@ def create():
             # HTML mode: re-render form with error message and submitted data
             flash(str(e), 'error')
             return tracked_render_template('users/new.html', name=name, email=email)
+    
+    except Exception as e:
+        # Database errors (IntegrityError, OperationalError, etc.)
+        # The error has been logged in the developer panel by connection.py
+        # Extract user-friendly message from structured error if available
+        error_message = getattr(e, 'structured_error', {}).get('message', str(e))
+        
+        if wants_json():
+            # JSON mode: return error details with structured information
+            return error_response(
+                message=error_message,
+                code='DATABASE_ERROR',
+                status=400
+            )
+        else:
+            # HTML mode: re-render form with error message and submitted data
+            flash(error_message, 'error')
+            return tracked_render_template('users/new.html', name=name, email=email)
 
 
 # ============================================================================
@@ -407,6 +425,25 @@ def update(user_id):
             # HTML mode: re-render form with error
             flash(str(e), 'error')
             # Pass the submitted values back to re-fill the form
+            return tracked_render_template('users/edit.html', user={
+                'id': user_id,
+                'name': name,
+                'email': email
+            })
+    
+    except Exception as e:
+        # Database errors (IntegrityError, OperationalError, etc.)
+        # The error has been logged in the developer panel by connection.py
+        error_message = getattr(e, 'structured_error', {}).get('message', str(e))
+        
+        if wants_json():
+            return error_response(
+                message=error_message,
+                code='DATABASE_ERROR',
+                status=400
+            )
+        else:
+            flash(error_message, 'error')
             return tracked_render_template('users/edit.html', user={
                 'id': user_id,
                 'name': name,

@@ -16,7 +16,7 @@ import sqlite3
 import os
 import time
 from typing import Any, List, Dict, Optional
-from backend.utils.request_tracker import track_db_query
+from backend.utils.request_tracker import track_db_query, track_error
 
 
 # Database file location
@@ -119,11 +119,131 @@ def execute_query(query: str, params: tuple = (), fetch_one: bool = False,
 
         return result
 
-    except sqlite3.Error as e:
-        print(f"Database error: {e}")
+    except sqlite3.IntegrityError as e:
+        # Handle constraint violations (UNIQUE, FOREIGN KEY, etc.)
+        # These are common user errors that should be handled gracefully
+        error_message = str(e)
+        
+        # Create structured error for tracking
+        structured_error = {
+            'error_type': 'IntegrityError',
+            'message': _parse_integrity_error(error_message),
+            'raw': error_message,
+            'query': query,
+            'params': list(params) if params else []
+        }
+        
+        # Track error for developer panel
+        track_error(
+            error_type='IntegrityError',
+            message=structured_error['message'],
+            raw_error=error_message,
+            query=query,
+            params=list(params) if params else []
+        )
+        
+        # Log to console for debugging
+        print(f"Database IntegrityError: {error_message}")
         print(f"Query: {query}")
         print(f"Params: {params}")
+        
+        # Re-raise with structured information attached
+        e.structured_error = structured_error
         raise
+        
+    except sqlite3.Error as e:
+        # Handle other database errors (connection issues, syntax errors, etc.)
+        error_message = str(e)
+        
+        # Create structured error for tracking
+        structured_error = {
+            'error_type': type(e).__name__,
+            'message': error_message,
+            'raw': error_message,
+            'query': query,
+            'params': list(params) if params else []
+        }
+        
+        # Track error for developer panel
+        track_error(
+            error_type=type(e).__name__,
+            message=error_message,
+            raw_error=error_message,
+            query=query,
+            params=list(params) if params else []
+        )
+        
+        # Log to console for debugging
+        print(f"Database error ({type(e).__name__}): {error_message}")
+        print(f"Query: {query}")
+        print(f"Params: {params}")
+        
+        # Re-raise with structured information attached
+        e.structured_error = structured_error
+        raise
+        
     finally:
         if conn:
             conn.close()
+
+
+def _parse_integrity_error(error_message: str) -> str:
+    """
+    Parse SQLite IntegrityError message into user-friendly format.
+    
+    Args:
+        error_message: Raw SQLite error message
+        
+    Returns:
+        User-friendly error message
+        
+    Examples:
+        "UNIQUE constraint failed: users.email" 
+        → "Email already exists"
+        
+        "FOREIGN KEY constraint failed"
+        → "Referenced record does not exist"
+        
+        "NOT NULL constraint failed: tasks.title"
+        → "Title is required"
+    
+    Learning Purpose:
+    - Shows how to transform technical errors into user-friendly messages
+    - Demonstrates error parsing and pattern matching
+    - Part of graceful error handling strategy
+    """
+    error_lower = error_message.lower()
+    
+    # UNIQUE constraint violations
+    if 'unique constraint failed' in error_lower:
+        # Extract field name if possible
+        if 'users.email' in error_lower:
+            return "Email already exists"
+        elif 'users.username' in error_lower:
+            return "Username already exists"
+        else:
+            # Generic unique constraint message
+            parts = error_message.split(':')
+            if len(parts) > 1:
+                field = parts[1].strip().split('.')[-1]
+                return f"{field.capitalize()} already exists"
+            return "This value already exists"
+    
+    # FOREIGN KEY constraint violations
+    if 'foreign key constraint failed' in error_lower:
+        return "Referenced record does not exist"
+    
+    # NOT NULL constraint violations
+    if 'not null constraint failed' in error_lower:
+        parts = error_message.split(':')
+        if len(parts) > 1:
+            field = parts[1].strip().split('.')[-1]
+            return f"{field.capitalize()} is required"
+        return "Required field is missing"
+    
+    # CHECK constraint violations
+    if 'check constraint failed' in error_lower:
+        return "Value does not meet validation requirements"
+    
+    # Default fallback
+    return error_message

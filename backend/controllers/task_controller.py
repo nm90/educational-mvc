@@ -319,6 +319,25 @@ def create():
                                  title=title, description=description,
                                  status=status, priority=priority,
                                  owner_id=owner_id, assignee_id=assignee_id)
+    
+    except Exception as e:
+        # Database errors (IntegrityError, OperationalError, etc.)
+        # The error has been logged in the developer panel by connection.py
+        error_message = getattr(e, 'structured_error', {}).get('message', str(e))
+        
+        if wants_json():
+            return error_response(
+                message=error_message,
+                code='DATABASE_ERROR',
+                status=400
+            )
+        else:
+            flash(error_message, 'error')
+            users = User.get_all()
+            return tracked_render_template('tasks/new.html', users=users,
+                                 title=title, description=description,
+                                 status=status, priority=priority,
+                                 owner_id=owner_id, assignee_id=assignee_id)
 
 
 # ============================================================================
@@ -497,6 +516,30 @@ def update(task_id):
             # Re-load users for dropdowns when re-rendering form
             users = User.get_all()
             # Pass the submitted values back to re-fill the form
+            return tracked_render_template('tasks/edit.html', task={
+                'id': task_id,
+                'title': title,
+                'description': description,
+                'status': status,
+                'priority': priority,
+                'owner_id': owner_id,
+                'assignee_id': assignee_id
+            }, users=users)
+    
+    except Exception as e:
+        # Database errors (IntegrityError, OperationalError, etc.)
+        # The error has been logged in the developer panel by connection.py
+        error_message = getattr(e, 'structured_error', {}).get('message', str(e))
+        
+        if wants_json():
+            return error_response(
+                message=error_message,
+                code='DATABASE_ERROR',
+                status=400
+            )
+        else:
+            flash(error_message, 'error')
+            users = User.get_all()
             return tracked_render_template('tasks/edit.html', task={
                 'id': task_id,
                 'title': title,

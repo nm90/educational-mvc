@@ -139,6 +139,7 @@ class DevPanel {
         const tabNames = [
             { name: 'state', label: 'State Inspector' },
             { name: 'methods', label: 'Method Calls' },
+            { name: 'errors', label: 'Errors' },
             { name: 'flow', label: 'Flow Diagram' },
             { name: 'network', label: 'Network' },
             { name: 'database', label: 'Database' }
@@ -441,6 +442,11 @@ class DevPanel {
                     this.attachDatabaseQueryListeners();
                 }
 
+                // Attach listeners for Errors tab
+                if (this.currentTab === 'errors') {
+                    this.attachErrorListeners();
+                }
+
                 // Attach listeners for Network Inspector tab
                 if (this.currentTab === 'network') {
                     this.attachNetworkInspectorListeners();
@@ -474,6 +480,10 @@ class DevPanel {
 
         if (tabName === 'database') {
             return this.renderDatabaseQueries();
+        }
+
+        if (tabName === 'errors') {
+            return this.renderErrors();
         }
 
         if (tabName === 'network') {
@@ -1629,6 +1639,63 @@ class DevPanel {
     }
 
     /**
+     * attachErrorListeners() - Attach event listeners for Errors tab
+     *
+     * Handles:
+     * - Error node expand/collapse toggles
+     */
+    attachErrorListeners() {
+        const list = document.getElementById('errors-list');
+
+        if (!list) return;
+
+        // Attach toggle listeners to all toggle buttons
+        const toggleButtons = list.querySelectorAll('.error-toggle');
+        toggleButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.toggleErrorNode(btn);
+            });
+
+            // Keyboard support: Space/Enter to toggle
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    this.toggleErrorNode(btn);
+                }
+            });
+        });
+    }
+
+    /**
+     * toggleErrorNode(toggleBtn) - Expand/collapse an error node
+     *
+     * @param {HTMLElement} toggleBtn - The toggle button element
+     */
+    toggleErrorNode(toggleBtn) {
+        const nodeId = toggleBtn.getAttribute('data-node-id');
+        const detailsDiv = document.getElementById(nodeId + '-details');
+
+        if (!detailsDiv) return;
+
+        const isHidden = detailsDiv.classList.contains('hidden');
+
+        if (isHidden) {
+            // Expand
+            detailsDiv.classList.remove('hidden');
+            toggleBtn.classList.remove('collapsed');
+            toggleBtn.setAttribute('aria-expanded', 'true');
+            toggleBtn.textContent = '▼';
+        } else {
+            // Collapse
+            detailsDiv.classList.add('hidden');
+            toggleBtn.classList.add('collapsed');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+            toggleBtn.textContent = '▶';
+        }
+    }
+
+    /**
      * renderNetworkInspector() - Display HTTP request/response details
      *
      * MVC Flow:
@@ -1781,6 +1848,193 @@ class DevPanel {
         html += `
                         </div>
                     </div>
+                </div>
+            </div>
+        `;
+
+        return html;
+    }
+
+    /**
+     * renderErrors() - Display SQL exceptions and errors with debug information
+     *
+     * MVC Flow:
+     * - Reads errors from backend (window.__DEBUG__.errors)
+     * - Shows SQL exceptions that occurred during request execution
+     * - Displays user-friendly messages for UI display
+     * - Shows full raw SQL error details for educational purposes
+     * - Students can see how errors are caught and handled gracefully
+     *
+     * Features:
+     * - Error type badges (IntegrityError, OperationalError, etc.)
+     * - User-friendly message for application UI
+     * - Raw SQL error message for debugging
+     * - Query and parameters that caused the error
+     * - Expandable error nodes for detailed inspection
+     * - Color-coded by error severity
+     *
+     * Learning Purpose:
+     * - Shows how SQL exceptions are caught and structured
+     * - Demonstrates graceful error handling
+     * - Teaches about database constraints (UNIQUE, FOREIGN KEY, NOT NULL)
+     * - Shows the difference between user-facing and technical error messages
+     * - Part of defensive programming and validation lessons
+     *
+     * Lesson Reference:
+     * - Error handling and validation
+     * - Database constraints and integrity
+     * - User experience in error scenarios
+     */
+    renderErrors() {
+        const errors = this.debugData.errors || [];
+
+        // Check if there are no errors (success case)
+        if (!errors || errors.length === 0) {
+            return `
+                <div class="errors-empty">
+                    <p style="color: #4ec9b0;">✓ No errors occurred</p>
+                    <p style="font-size: 10px; margin-top: 10px; color: #858585;">
+                        This request completed successfully without any SQL exceptions
+                    </p>
+                </div>
+            `;
+        }
+
+        // Create header with error count
+        let html = `
+            <div class="errors-header">
+                <div class="errors-summary">
+                    <strong style="color: #f48771;">${errors.length} error${errors.length > 1 ? 's' : ''} occurred</strong>
+                    <div style="margin-top: 10px; padding: 8px; background: #3d2a2a; border-left: 3px solid #f48771; border-radius: 3px;">
+                        <span style="color: #f48771;">⚠️ SQL exceptions were caught and logged for debugging</span>
+                    </div>
+                </div>
+            </div>
+            <div class="errors-list" id="errors-list">
+        `;
+
+        // Render each error
+        errors.forEach((error, index) => {
+            html += this.createErrorNode(error, index);
+        });
+
+        html += '</div>';
+        return html;
+    }
+
+    /**
+     * createErrorNode(error, index) - Create expandable node for a single error
+     *
+     * Shows:
+     * - Error type badge (IntegrityError, OperationalError, etc.)
+     * - User-friendly message (for application UI)
+     * - Click to expand → raw SQL error, query, parameters
+     *
+     * @param {Object} error - Error object {error_type, message, raw, query, params}
+     * @param {number} index - Index of this error in the list
+     * @returns {string} HTML for this error node
+     */
+    createErrorNode(error, index) {
+        const { error_type = 'Error', message = 'Unknown error', raw = '', query = null, params = [] } = error;
+        const nodeId = `error-${index}`;
+
+        // Determine error color based on type
+        let errorColor = '#f48771'; // Default red
+        if (error_type === 'IntegrityError') {
+            errorColor = '#f59e0b'; // Orange for constraint violations
+        } else if (error_type === 'OperationalError') {
+            errorColor = '#f48771'; // Red for operational errors
+        }
+
+        let html = `
+            <div class="error-node">
+                <button
+                    class="error-toggle collapsed"
+                    data-node-id="${nodeId}"
+                    tabindex="0"
+                    aria-expanded="false"
+                    aria-controls="${nodeId}-details"
+                >
+                    ▶
+                </button>
+                <div class="error-header">
+                    <span class="error-type-badge" style="background-color: ${errorColor}; opacity: 0.8; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold; margin-right: 10px;">
+                        ${this.escapeHtml(error_type)}
+                    </span>
+                    <span class="error-message">${this.escapeHtml(message)}</span>
+                </div>
+                <div
+                    id="${nodeId}-details"
+                    class="error-details hidden"
+                    role="region"
+                    aria-labelledby="${nodeId}"
+                >
+                    <div class="error-section">
+                        <div class="error-section-title">User-Friendly Message (for UI)</div>
+                        <div style="padding: 8px; background: #2a2a2a; border-radius: 4px; color: #4ec9b0;">
+                            ${this.escapeHtml(message)}
+                        </div>
+                        <p style="font-size: 10px; margin-top: 5px; color: #858585;">
+                            This is the message shown to users in the application
+                        </p>
+                    </div>
+
+                    <div class="error-section">
+                        <div class="error-section-title">Raw SQL Error (for debugging)</div>
+                        <pre style="margin: 0; background: #1e1e1e; padding: 8px; border-radius: 4px; overflow-x: auto; color: #f48771;">${this.escapeHtml(raw)}</pre>
+                        <p style="font-size: 10px; margin-top: 5px; color: #858585;">
+                            This is the technical error message from SQLite
+                        </p>
+                    </div>
+        `;
+
+        // Show query if available
+        if (query) {
+            html += `
+                    <div class="error-section">
+                        <div class="error-section-title">Query That Failed</div>
+                        <pre class="error-query">${this.highlightSQL(query, false)}</pre>
+                    </div>
+            `;
+        }
+
+        // Show parameters if any
+        if (params && params.length > 0) {
+            html += `
+                    <div class="error-section">
+                        <div class="error-section-title">Parameters</div>
+                        <pre style="margin: 0; background: #1e1e1e; padding: 8px; border-radius: 4px; overflow-x: auto;">
+            `;
+            params.forEach((param, i) => {
+                html += `<span class="tree-node-number">[${i}]</span> ${this.escapeHtml(JSON.stringify(param))}\n`;
+            });
+            html += `</pre>
+                    </div>
+            `;
+        }
+
+        // Add educational note based on error type
+        if (error_type === 'IntegrityError') {
+            html += `
+                    <div class="error-section">
+                        <div class="error-section-title">💡 Learning Note</div>
+                        <div style="padding: 8px; background: #2a3d2a; border-left: 3px solid #4ec9b0; border-radius: 4px; color: #d4d4d4; font-size: 12px;">
+                            <strong>IntegrityError</strong> occurs when a database constraint is violated:
+                            <ul style="margin: 5px 0 0 20px; padding: 0;">
+                                <li><strong>UNIQUE</strong>: Duplicate value in a column that must be unique</li>
+                                <li><strong>FOREIGN KEY</strong>: Referenced record doesn't exist</li>
+                                <li><strong>NOT NULL</strong>: Required field is missing</li>
+                                <li><strong>CHECK</strong>: Value doesn't meet validation rule</li>
+                            </ul>
+                            <p style="margin-top: 8px;">
+                                These errors should be caught and converted to user-friendly messages in your application.
+                            </p>
+                        </div>
+                    </div>
+            `;
+        }
+
+        html += `
                 </div>
             </div>
         `;

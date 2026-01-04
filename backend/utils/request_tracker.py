@@ -70,6 +70,17 @@ def init_request_tracking():
             },
             ...
         ],
+        'errors': [
+            {
+                'error_type': 'IntegrityError',
+                'message': 'Email already exists',
+                'raw': 'UNIQUE constraint failed: users.email',
+                'query': 'INSERT INTO users (name, email) VALUES (?, ?)',
+                'params': ['Alice', 'alice@example.com'],
+                'timestamp': 1234567890.789
+            },
+            ...
+        ],
         'timing': {
             'request_start': 1234567890.0,
             'request_end': 1234567890.5,
@@ -95,6 +106,7 @@ def init_request_tracking():
     return {
         'method_calls': [],
         'db_queries': [],
+        'errors': [],
         'timing': {
             'request_start': time.time(),
             'request_end': None
@@ -198,6 +210,7 @@ def after_request(response):
                 'request_id': g.request_id,
                 'method_calls': g.tracking['method_calls'],
                 'db_queries': g.tracking['db_queries'],
+                'errors': g.tracking['errors'],
                 'timing': g.tracking['timing'],
                 'view_data': g.tracking['view_data'],
                 'request_info': g.tracking.get('request_info', {})
@@ -321,6 +334,57 @@ def track_db_query(query, params=None, result_row_count=0, duration_ms=0):
 
     # Add to tracking
     g.tracking['db_queries'].append(query_entry)
+
+
+def track_error(error_type, message, raw_error, query=None, params=None):
+    """
+    Log an error to the request's tracking data.
+
+    Called by database layer when SQL exceptions occur.
+
+    Args:
+        error_type (str): Type of error (e.g., 'IntegrityError', 'OperationalError')
+        message (str): User-friendly error message (e.g., 'Email already exists')
+        raw_error (str): Raw error message from database
+        query (str): SQL query that caused the error (optional)
+        params (list): Parameters bound to query (optional)
+
+    Stored in g.tracking['errors'] as ordered list.
+
+    Dev Panel use:
+    - Displays in Errors tab with full debug information
+    - Shows user-friendly message for UI display
+    - Shows raw SQL error for educational purposes
+    - Shows query and parameters that caused the error
+    - Helps students understand constraint violations and error handling
+    - Lesson coverage: Error handling and validation
+
+    Example entry:
+    {
+        'error_type': 'IntegrityError',
+        'message': 'Email already exists',
+        'raw': 'UNIQUE constraint failed: users.email',
+        'query': 'INSERT INTO users (name, email) VALUES (?, ?)',
+        'params': ['Alice', 'alice@example.com'],
+        'timestamp': 1234567890.789
+    }
+    """
+    # Don't log if tracking not initialized (shouldn't happen)
+    if not hasattr(g, 'tracking'):
+        return
+
+    # Create entry
+    error_entry = {
+        'error_type': error_type,
+        'message': message,
+        'raw': raw_error,
+        'query': query,
+        'params': params or [],
+        'timestamp': time.time()
+    }
+
+    # Add to tracking
+    g.tracking['errors'].append(error_entry)
 
 
 def track_view_data(data):
