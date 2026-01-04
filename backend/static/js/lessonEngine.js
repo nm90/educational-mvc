@@ -1304,7 +1304,56 @@ class LessonEngine {
     }
 
     /**
+     * Detect code language from checkpoint context
+     *
+     * Analyzes the code template to determine the programming language.
+     * Returns a language supported by highlight.js.
+     *
+     * @param {object} checkpoint - Code checkpoint data
+     * @returns {string} - Language identifier (python, sql, html, etc.)
+     */
+    detectCodeLanguage(checkpoint) {
+        const template = checkpoint.codeTemplate || '';
+
+        // SQL detection
+        if (template.includes('CREATE TABLE') ||
+            template.includes('SELECT') ||
+            template.includes('INSERT INTO') ||
+            template.includes('UPDATE') ||
+            template.includes('DELETE FROM')) {
+            return 'sql';
+        }
+
+        // HTML/Jinja2 detection
+        if (template.includes('{% ') ||
+            template.includes('{{ ') ||
+            template.includes('<form') ||
+            template.includes('<div') ||
+            template.includes('</')) {
+            return 'html'; // HTML includes Jinja2 template syntax
+        }
+
+        // Python detection (default for code checkpoints)
+        if (template.includes('def ') ||
+            template.includes('class ') ||
+            template.includes('@staticmethod') ||
+            template.includes('import ') ||
+            template.includes(':')) {
+            return 'python';
+        }
+
+        // Default to python
+        return 'python';
+    }
+
+    /**
      * Render a code checkpoint
+     *
+     * MVC Flow:
+     * - Displays code template with syntax highlighting (reference)
+     * - Provides editable textarea for user code
+     * - Supports Python, SQL, and HTML/Jinja2 languages
+     * - Validates code via backend CheckpointValidator
      *
      * @param {object} checkpoint - Code checkpoint data
      * @param {HTMLElement} container - Container to render into
@@ -1312,11 +1361,12 @@ class LessonEngine {
      */
     renderCodeCheckpoint(checkpoint, container) {
         /**
-         * Render code checkpoint UI with textarea and validation.
+         * Render code checkpoint UI with syntax-highlighted template and editable textarea.
          *
          * Creates:
          * - Instructions div
-         * - Textarea with code template (if provided)
+         * - Syntax-highlighted code template reference (pre+code block)
+         * - Editable textarea with initial code
          * - Submit button for validation
          * - Result container for feedback
          */
@@ -1328,10 +1378,37 @@ class LessonEngine {
         instructions.className = 'lesson-code-instructions';
         instructions.innerHTML = checkpoint.instructions;
 
-        // Code template (if provided)
+        // Detect code language for syntax highlighting
+        const language = this.detectCodeLanguage(checkpoint);
+
+        // Code template with syntax highlighting (if provided)
         let initialCode = '';
         if (checkpoint.codeTemplate) {
             initialCode = checkpoint.codeTemplate;
+
+            // Create syntax-highlighted template reference
+            const templateDiv = document.createElement('div');
+            templateDiv.className = 'lesson-code-template';
+
+            const templateLabel = document.createElement('div');
+            templateLabel.className = 'lesson-code-template-label';
+            templateLabel.textContent = 'Code Template:';
+
+            const preElement = document.createElement('pre');
+            const codeElement = document.createElement('code');
+            codeElement.className = `language-${language} hljs`;
+            codeElement.textContent = initialCode;
+
+            preElement.appendChild(codeElement);
+            templateDiv.appendChild(templateLabel);
+            templateDiv.appendChild(preElement);
+
+            // Apply syntax highlighting using highlight.js
+            if (window.hljs) {
+                window.hljs.highlightElement(codeElement);
+            }
+
+            codeDiv.appendChild(templateDiv);
         }
 
         // Textarea for code input
@@ -1342,6 +1419,7 @@ class LessonEngine {
         textarea.rows = 15;
         textarea.value = initialCode;
         textarea.spellcheck = false;
+        textarea.dataset.language = language; // Store language for reference
 
         // Submit button
         const submitBtn = document.createElement('button');
