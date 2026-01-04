@@ -1350,9 +1350,9 @@ class LessonEngine {
      * Render a code checkpoint
      *
      * MVC Flow:
-     * - Displays code template with syntax highlighting (reference)
-     * - Provides editable textarea for user code
+     * - Provides editable textarea with syntax highlighting support
      * - Supports Python, SQL, and HTML/Jinja2 languages
+     * - Detects language for proper code handling
      * - Validates code via backend CheckpointValidator
      *
      * @param {object} checkpoint - Code checkpoint data
@@ -1361,12 +1361,11 @@ class LessonEngine {
      */
     renderCodeCheckpoint(checkpoint, container) {
         /**
-         * Render code checkpoint UI with syntax-highlighted template and editable textarea.
+         * Render code checkpoint UI with editable textarea.
          *
          * Creates:
          * - Instructions div
-         * - Syntax-highlighted code template reference (pre+code block)
-         * - Editable textarea with initial code
+         * - Editable textarea with code template as initial content
          * - Submit button for validation
          * - Result container for feedback
          */
@@ -1378,40 +1377,16 @@ class LessonEngine {
         instructions.className = 'lesson-code-instructions';
         instructions.innerHTML = checkpoint.instructions;
 
-        // Detect code language for syntax highlighting
+        // Detect code language for validation and context
         const language = this.detectCodeLanguage(checkpoint);
 
-        // Code template with syntax highlighting (if provided)
+        // Code template (if provided)
         let initialCode = '';
         if (checkpoint.codeTemplate) {
             initialCode = checkpoint.codeTemplate;
-
-            // Create syntax-highlighted template reference
-            const templateDiv = document.createElement('div');
-            templateDiv.className = 'lesson-code-template';
-
-            const templateLabel = document.createElement('div');
-            templateLabel.className = 'lesson-code-template-label';
-            templateLabel.textContent = 'Code Template:';
-
-            const preElement = document.createElement('pre');
-            const codeElement = document.createElement('code');
-            codeElement.className = `language-${language} hljs`;
-            codeElement.textContent = initialCode;
-
-            preElement.appendChild(codeElement);
-            templateDiv.appendChild(templateLabel);
-            templateDiv.appendChild(preElement);
-
-            // Apply syntax highlighting using highlight.js
-            if (window.hljs) {
-                window.hljs.highlightElement(codeElement);
-            }
-
-            codeDiv.appendChild(templateDiv);
         }
 
-        // Textarea for code input
+        // Textarea for code input with language context
         const textarea = document.createElement('textarea');
         textarea.className = 'lesson-code-input';
         textarea.placeholder = 'Write your code here...';
@@ -1419,7 +1394,7 @@ class LessonEngine {
         textarea.rows = 15;
         textarea.value = initialCode;
         textarea.spellcheck = false;
-        textarea.dataset.language = language; // Store language for reference
+        textarea.dataset.language = language; // Store language for reference/future highlighting
 
         // Submit button
         const submitBtn = document.createElement('button');
