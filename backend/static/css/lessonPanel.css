@@ -770,12 +770,14 @@ input:checked + .toggle-slider:before {
     color: rgba(255, 255, 255, 0.9);
 }
 
-/* Code textarea for checkpoint */
+/* Syntax-highlighted code editor */
 .lesson-code-input {
+    display: block;
     width: 100%;
     min-height: 150px;
     max-height: 250px;
     padding: 8px;
+    margin-bottom: 8px;
     font-family: 'Monaco', 'Menlo', 'Courier New', 'Ubuntu Mono', monospace;
     font-size: 11px;
     line-height: 1.5;
@@ -783,11 +785,11 @@ input:checked + .toggle-slider:before {
     color: #d4d4d4;
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 4px;
-    resize: vertical;
+    overflow: auto;
     tab-size: 4;
     -moz-tab-size: 4;
     white-space: pre;
-    overflow-wrap: normal;
+    word-break: break-all;
 }
 
 .lesson-code-input:focus {
@@ -795,6 +797,10 @@ input:checked + .toggle-slider:before {
     border-color: #4ade80;
     box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.25);
     background: rgba(0, 0, 0, 0.4);
+}
+
+.lesson-code-input::selection {
+    background-color: rgba(255, 255, 255, 0.25);
 }
 
 .lesson-code-input::placeholder {

@@ -519,7 +519,7 @@ class LessonEngine {
          * Validate code checkpoint by submitting to backend.
          *
          * MVC Flow:
-         * 1. Get code from textarea
+         * 1. Get code from CodeMirror editor
          * 2. POST to /lessons/<id>/checkpoint
          * 3. Backend validates using CheckpointValidator
          * 4. Show validation result in UI
@@ -530,13 +530,18 @@ class LessonEngine {
          * - Validation logic with args and return values
          * - Execution time
          */
-        const codeInput = document.getElementById('lesson-code-input');
-        if (!codeInput) {
-            console.error('Code input element not found');
-            return false;
+        // Get code from CodeMirror editor
+        let code = '';
+        if (window.lessonCodeEditor) {
+            code = window.lessonCodeEditor.getValue().trim();
+        } else {
+            // Fallback: try to get from textarea if CodeMirror isn't available
+            const codeInput = document.getElementById('lesson-code-input');
+            if (codeInput) {
+                code = codeInput.value.trim();
+            }
         }
 
-        const code = codeInput.value.trim();
         if (!code) {
             this.showValidationResult({
                 success: false,
@@ -1350,9 +1355,9 @@ class LessonEngine {
      * Render a code checkpoint
      *
      * MVC Flow:
-     * - Provides editable textarea with syntax highlighting support
+     * - Provides editable textarea with real-time syntax highlighting
      * - Supports Python, SQL, and HTML/Jinja2 languages
-     * - Detects language for proper code handling
+     * - Uses highlight.js for syntax coloring
      * - Validates code via backend CheckpointValidator
      *
      * @param {object} checkpoint - Code checkpoint data
@@ -1361,11 +1366,11 @@ class LessonEngine {
      */
     renderCodeCheckpoint(checkpoint, container) {
         /**
-         * Render code checkpoint UI with editable textarea.
+         * Render code checkpoint UI with syntax-highlighted textarea.
          *
          * Creates:
          * - Instructions div
-         * - Editable textarea with code template as initial content
+         * - Editable textarea with syntax-highlighted display overlay
          * - Submit button for validation
          * - Result container for feedback
          */
@@ -1377,7 +1382,7 @@ class LessonEngine {
         instructions.className = 'lesson-code-instructions';
         instructions.innerHTML = checkpoint.instructions;
 
-        // Detect code language for validation and context
+        // Detect code language for syntax highlighting
         const language = this.detectCodeLanguage(checkpoint);
 
         // Code template (if provided)
@@ -1386,15 +1391,30 @@ class LessonEngine {
             initialCode = checkpoint.codeTemplate;
         }
 
-        // Textarea for code input with language context
-        const textarea = document.createElement('textarea');
-        textarea.className = 'lesson-code-input';
-        textarea.placeholder = 'Write your code here...';
-        textarea.id = 'lesson-code-input';
-        textarea.rows = 15;
-        textarea.value = initialCode;
-        textarea.spellcheck = false;
-        textarea.dataset.language = language; // Store language for reference/future highlighting
+        // Create contenteditable code editor with syntax highlighting
+        const codeEditor = document.createElement('code');
+        codeEditor.className = `lesson-code-input language-${language} hljs`;
+        codeEditor.id = 'lesson-code-input';
+        codeEditor.contentEditable = true;
+        codeEditor.spellcheck = false;
+        codeEditor.dataset.language = language;
+        codeEditor.textContent = initialCode;
+
+        // Apply initial highlighting
+        if (window.hljs) {
+            window.hljs.highlightElement(codeEditor);
+        }
+
+        // Setup real-time highlighting as user types
+        codeEditor.addEventListener('input', () => {
+            const code = codeEditor.textContent;
+            codeEditor.classList.remove('hljs');
+            codeEditor.innerHTML = code;
+            codeEditor.classList.add('hljs');
+            if (window.hljs) {
+                window.hljs.highlightElement(codeEditor);
+            }
+        });
 
         // Submit button
         const submitBtn = document.createElement('button');
@@ -1417,11 +1437,13 @@ class LessonEngine {
         resultDiv.id = 'lesson-validation-result';
 
         codeDiv.appendChild(instructions);
-        codeDiv.appendChild(textarea);
+        codeDiv.appendChild(codeEditor);
         codeDiv.appendChild(submitBtn);
         codeDiv.appendChild(resultDiv);
 
         container.appendChild(codeDiv);
+
+        console.log(`[LessonEngine] Syntax-highlighted code editor initialized for ${language}`);
     }
 
     /**
