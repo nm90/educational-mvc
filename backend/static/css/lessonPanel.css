@@ -949,3 +949,29 @@ input:checked + .toggle-slider:before {
         transform: translateY(0);
     }
 }
+
+/* ============================================================================
+ * RESIZABLE LESSON PANEL
+ * ============================================================================ */
+
+/* Resize handle at the right edge of the panel */
+.lesson-panel-resize-handle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.2);
+    cursor: col-resize;
+    transition: background-color 0.2s ease;
+    z-index: 1001;
+}
+
+.lesson-panel-resize-handle:hover {
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+.lesson-panel-resize-handle.dragging {
+    background-color: #4ade80;
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+}

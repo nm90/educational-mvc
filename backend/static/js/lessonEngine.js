@@ -32,6 +32,11 @@ class LessonEngine {
         this.lessonPanelElement = null;
         this.lessonStartTime = null; // Track when lesson started for time tracking
         this.stepStartTime = null;   // Track when step started
+        this.isPanelResizing = false; // Track if panel is being resized
+        this.panelResizeStartX = 0;   // Starting X position for resize
+        this.panelResizeStartWidth = 0; // Starting width for resize
+        this.panelMinWidth = 250;     // Minimum panel width in pixels
+        this.panelMaxWidth = 600;     // Maximum panel width in pixels
     }
 
     /**
@@ -1170,6 +1175,12 @@ class LessonEngine {
 
         // Add keyboard navigation support
         this.setupKeyboardNavigation();
+
+        // Initialize panel resize functionality
+        this.initializePanelResize();
+
+        // Restore saved panel width from localStorage
+        this.restorePanelWidth();
     }
 
     /**
@@ -1722,6 +1733,132 @@ class LessonEngine {
                 this.nextStep();
             }
         });
+    }
+
+    /**
+     * Initialize panel resize functionality
+     *
+     * Creates a resize handle on the right edge of the lesson panel
+     * and sets up mouse event listeners for drag-to-resize interaction.
+     *
+     * MVC Role: Controller
+     * - Manages panel resize state
+     * - Coordinates between UI and localStorage persistence
+     *
+     * @returns {void}
+     */
+    initializePanelResize() {
+        if (!this.lessonPanelElement) {
+            return;
+        }
+
+        // Create resize handle element
+        const resizeHandle = document.createElement('div');
+        resizeHandle.className = 'lesson-panel-resize-handle';
+        resizeHandle.title = 'Drag to resize lesson panel';
+        this.lessonPanelElement.appendChild(resizeHandle);
+
+        // Mouse down: Start resize
+        resizeHandle.addEventListener('mousedown', (e) => {
+            this.isPanelResizing = true;
+            this.panelResizeStartX = e.clientX;
+            this.panelResizeStartWidth = this.lessonPanelElement.offsetWidth;
+            resizeHandle.classList.add('dragging');
+
+            console.log('[LessonEngine] Panel resize started');
+        });
+
+        // Mouse move: Resize panel
+        document.addEventListener('mousemove', (e) => {
+            if (!this.isPanelResizing) {
+                return;
+            }
+
+            const deltaX = e.clientX - this.panelResizeStartX;
+            const newWidth = this.panelResizeStartWidth + deltaX;
+
+            // Apply min/max constraints
+            if (newWidth >= this.panelMinWidth && newWidth <= this.panelMaxWidth) {
+                this.lessonPanelElement.style.width = newWidth + 'px';
+                document.body.style.marginLeft = newWidth + 'px';
+
+                // Update body width info for responsive styles
+                this.panelCurrentWidth = newWidth;
+            }
+        });
+
+        // Mouse up: End resize
+        document.addEventListener('mouseup', () => {
+            if (this.isPanelResizing) {
+                this.isPanelResizing = false;
+                resizeHandle.classList.remove('dragging');
+
+                // Save the new width to localStorage
+                if (this.panelCurrentWidth) {
+                    this.savePanelWidth(this.panelCurrentWidth);
+                    console.log(`[LessonEngine] Panel resized to ${this.panelCurrentWidth}px and saved`);
+                }
+            }
+        });
+
+        console.log('[LessonEngine] Panel resize functionality initialized');
+    }
+
+    /**
+     * Save panel width to localStorage
+     *
+     * Persists the lesson panel width so it can be restored on next page load.
+     *
+     * @param {number} width - Panel width in pixels
+     * @returns {void}
+     */
+    savePanelWidth(width) {
+        try {
+            localStorage.setItem('lessonPanelWidth', width.toString());
+        } catch (error) {
+            console.warn('[LessonEngine] Failed to save panel width to localStorage:', error);
+        }
+    }
+
+    /**
+     * Load panel width from localStorage
+     *
+     * Retrieves the saved panel width from a previous session.
+     * Returns null if no saved width is found.
+     *
+     * @returns {number|null} - Saved panel width or null if not found
+     */
+    loadPanelWidth() {
+        try {
+            const saved = localStorage.getItem('lessonPanelWidth');
+            if (saved) {
+                const width = parseInt(saved, 10);
+                if (!isNaN(width) && width >= this.panelMinWidth && width <= this.panelMaxWidth) {
+                    return width;
+                }
+            }
+        } catch (error) {
+            console.warn('[LessonEngine] Failed to load panel width from localStorage:', error);
+        }
+        return null;
+    }
+
+    /**
+     * Restore panel width from localStorage
+     *
+     * Applies the saved panel width to the lesson panel and body margin.
+     * If no saved width exists, uses the default width.
+     *
+     * @returns {void}
+     */
+    restorePanelWidth() {
+        const savedWidth = this.loadPanelWidth();
+        if (savedWidth) {
+            this.lessonPanelElement.style.width = savedWidth + 'px';
+            document.body.style.marginLeft = savedWidth + 'px';
+            this.panelCurrentWidth = savedWidth;
+            console.log(`[LessonEngine] Panel width restored from localStorage: ${savedWidth}px`);
+        }
     }
 
     /**
