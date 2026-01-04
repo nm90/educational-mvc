@@ -1137,7 +1137,8 @@ class DevPanel {
     /**
      * formatReturnValue(value, isHtmlResponse, templatePath) - Format method return value
      *
-     * For HTML responses, strips inline comments and adds a source reference.
+     * For HTML responses, strips inline comments, adds a source reference,
+     * and applies syntax highlighting using highlight.js.
      * For other values, displays as formatted JSON.
      *
      * @param {*} value - Return value to display
@@ -1153,8 +1154,22 @@ class DevPanel {
         } else if (isHtmlResponse && typeof value === 'string') {
             // For HTML responses, strip comments and add source reference
             const processedHtml = this.stripHtmlComments(value, templatePath);
-            html += '<pre style="margin: 0; background: #1e1e1e; padding: 8px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;">';
-            html += this.escapeHtml(processedHtml);
+
+            // Apply syntax highlighting if highlight.js is available
+            let highlightedHtml;
+            if (typeof hljs !== 'undefined') {
+                try {
+                    highlightedHtml = hljs.highlight(processedHtml, { language: 'html' }).value;
+                } catch (e) {
+                    // Fallback to escaped HTML if highlighting fails
+                    highlightedHtml = this.escapeHtml(processedHtml);
+                }
+            } else {
+                highlightedHtml = this.escapeHtml(processedHtml);
+            }
+
+            html += '<pre class="hljs" style="margin: 0; padding: 8px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;">';
+            html += `<code class="language-html">${highlightedHtml}</code>`;
             html += '</pre>';
         } else {
             html += '<pre style="margin: 0; background: #1e1e1e; padding: 8px; border-radius: 4px; overflow-x: auto;">';
