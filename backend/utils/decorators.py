@@ -117,8 +117,13 @@ def log_method_call(func: Callable) -> Callable:
             method_name = func.__qualname__
             logged_args = args
         else:
-            # Regular function
-            method_name = func.__name__
+            # Regular function (likely a Flask route handler)
+            # Use request.endpoint for qualified name (e.g., "users.create", "tasks.index")
+            # This makes controller methods show up properly in the Method Calls list
+            try:
+                method_name = request.endpoint or func.__name__
+            except RuntimeError:
+                method_name = func.__name__
             logged_args = args
 
         # Record start time (using perf_counter for more accurate timing)
