@@ -1,0 +1,16 @@
+services:
+  - name: educational-mvc
+    builder: dockerfile
+    git:
+      branch: main
+    env:
+      - key: FLASK_ENV
+        value: production
+      - key: PYTHONUNBUFFERED
+        value: "1"
+    ports:
+      - name: http
+        port: 5000
+    health_checks:
+      - type: http
+        path: /health
